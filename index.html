@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <!-- viewport-fit=cover lets the app fill the screen under the iPad rounded corners / safe areas -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#4f46e5" />
+  <title>Refund Tracker</title>
+
+  <!-- iOS "Add to Home Screen" hints: open fullscreen like a real app -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Refunds" />
+
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon-180.png" />
+  <link rel="icon" href="./assets/icons/icon-192.png" />
+  <link rel="stylesheet" href="./assets/styles.css" />
+
+  <!-- Classic script (not a module) so it sets window.APP_VERSION before the app loads -->
+  <script src="./version.js"></script>
+</head>
+<body>
+  <div id="app" aria-live="polite"></div>
+  <div id="overlay-root"></div>
+  <div id="toast-root" aria-live="assertive"></div>
+
+  <noscript>
+    <p style="padding:24px;font:16px system-ui">This app needs JavaScript turned on.</p>
+  </noscript>
+
+  <script type="module" src="./core/app.js"></script>
+</body>
+</html>

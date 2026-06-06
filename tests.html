@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Refund Tracker — self tests</title>
+  <script src="./version.js"></script>
+  <style>
+    body { font: 15px/1.5 -apple-system, system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 20px; }
+    .summary { font-weight: 700; padding: 10px 14px; border-radius: 10px; margin: 12px 0; }
+    .ok { background: #d1fae5; color: #065f46; }
+    .bad { background: #fee2e2; color: #991b1b; }
+    .case { padding: 6px 10px; border-bottom: 1px solid #eee; }
+    .pass::before { content: "✓ "; color: #059669; font-weight: 700; }
+    .fail::before { content: "✗ "; color: #dc2626; font-weight: 700; }
+    .fail { color: #991b1b; }
+    code { background: #f3f4f6; padding: 1px 5px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Refund Tracker — self tests</h1>
+  <p>Open this file from the served site (so ES module imports resolve). Tests the
+     integrity-critical pure logic — no IndexedDB needed except the blob round-trip.</p>
+  <div id="summary" class="summary">Running…</div>
+  <div id="results"></div>
+
+  <script type="module">
+    import { centsToStr, parseAmountToCents, daysSince } from './core/ui.js';
+    import {
+      STATUS, TYPE, makeItem, withStatus, computeSummary, reconciles
+    } from './features/items/model.js';
+    import { buildEnvelope, validateEnvelope, blobToDataURL, dataURLToBlob } from './core/backup.js';
+
+    const results = document.getElementById('results');
+    let pass = 0, fail = 0;
+
+    function check(name, cond) {
+      const div = document.createElement('div');
+      div.className = 'case ' + (cond ? 'pass' : 'fail');
+      div.textContent = name;
+      results.appendChild(div);
+      cond ? pass++ : fail++;
+    }
+    function eq(name, a, b) { check(`${name} → got ${JSON.stringify(a)}`, a === b); }
+    function throws(name, fn) {
+      let threw = false;
+      try { fn(); } catch { threw = true; }
+      check(name, threw);
+    }
+
+    // ---- money ----
+    eq('centsToStr(0)', centsToStr(0), '$0.00');
+    eq('centsToStr(123456)', centsToStr(123456), '$1,234.56');
+    eq('centsToStr(-500)', centsToStr(-500), '-$5.00');
+    eq('parse "12.99"', parseAmountToCents('12.99'), 1299);
+    eq('parse "$1,234.50"', parseAmountToCents('$1,234.50'), 123450);
+    eq('parse "12"', parseAmountToCents('12'), 1200);
+    eq('parse ".5"', parseAmountToCents('.5'), 50);
+    eq('parse "abc" → null', parseAmountToCents('abc'), null);
+    eq('parse "" → null', parseAmountToCents(''), null);
+    eq('parse "." → null', parseAmountToCents('.'), null);
+    eq('parse "-5" → null', parseAmountToCents('-5'), null);
+
+    // ---- dates ----
+    eq('daysSince(null)', daysSince(null), 0);
+
+    // ---- model: items + integrity ----
+    const a = makeItem({ payee: 'Amazon', amount: 1000, type: TYPE.RETURN });
+    eq('makeItem default status', a.status, STATUS.NA);
+    check('makeItem has id', !!a.id);
+    eq('makeItem amount is cents', a.amount, 1000);
+
+    const items = [
+      makeItem({ payee: 'A', amount: 1000, status: STATUS.NA }),
+      makeItem({ payee: 'B', amount: 2500, status: STATUS.PENDING }),
+      makeItem({ payee: 'C', amount: 9999, status: STATUS.RECEIVED }),
+      makeItem({ payee: 'D', amount: 500, status: STATUS.CANCELLED }),
+      makeItem({ payee: 'E (no category)', amount: 700, status: STATUS.NA, category: null })
+    ];
+    const s = computeSummary(items);
+    eq('outstanding = NA + PENDING cents', s.outstandingCents, 1000 + 2500 + 700);
+    eq('outstanding count', s.outstandingCount, 3);
+    eq('received cents', s.receivedCents, 9999);
+    eq('cancelled excluded from outstanding', s.cancelledCount, 1);
+    eq('total', s.total, 5);
+    check('reconciles: every item accounted for once', reconciles(items, s));
+    check('item with null category still counted', s.outstandingCount === 3);
+
+    const moved = withStatus(a, STATUS.RECEIVED);
+    check('withStatus changes status', moved.status === STATUS.RECEIVED);
+    check('withStatus bumps statusChangedDate', moved.statusChangedDate !== a.statusChangedDate || a.status === STATUS.RECEIVED);
+    check('withStatus same status returns same object', withStatus(a, a.status) === a);
+
+    // ---- backup envelope ----
+    const env = buildEnvelope({ items, merchants: [], meta: [], receipts: [], appVersion: 'test', exportedAt: 'now' });
+    check('envelope validates', validateEnvelope(env) === true);
+    eq('envelope counts items', env.counts.items, items.length);
+    throws('validateEnvelope rejects junk', () => validateEnvelope({ kind: 'nope' }));
+
+    // round-trip the envelope through JSON (what export/import actually does)
+    const round = JSON.parse(JSON.stringify(env));
+    check('JSON round-trip preserves items', round.items.length === items.length);
+    check('JSON round-trip preserves amounts', round.items[1].amount === 2500);
+
+    // ---- blob (receipt) round-trip ----
+    (async () => {
+      try {
+        const original = new Blob([new Uint8Array([1, 2, 3, 4, 5, 250])], { type: 'image/jpeg' });
+        const dataUrl = await blobToDataURL(original);
+        const back = await dataURLToBlob(dataUrl);
+        const bytes = new Uint8Array(await back.arrayBuffer());
+        check('receipt blob round-trip preserves size', bytes.length === 6);
+        check('receipt blob round-trip preserves bytes', bytes[5] === 250);
+        check('receipt blob round-trip preserves type', back.type === 'image/jpeg');
+      } catch (e) {
+        check('receipt blob round-trip (' + e.message + ')', false);
+      } finally {
+        finish();
+      }
+    })();
+
+    function finish() {
+      const sum = document.getElementById('summary');
+      sum.textContent = `${pass} passed, ${fail} failed`;
+      sum.className = 'summary ' + (fail === 0 ? 'ok' : 'bad');
+    }
+  </script>
+</body>
+</html>

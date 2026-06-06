@@ -93,47 +93,46 @@ function fileName(item) {
 
 /**
  * Generate the .ics for an item and offer it to iOS. On iPhone the Share Sheet opens with
- * iOS shows its native "Add to Calendar" event screen (where she picks the calendar).
  * Returns { ok, reason }.
  *
- * IMPORTANT iOS detail: we OPEN the .ics, we do NOT "share" it. Sharing a calendar file
- * only offers Messages / Mail / Copy / Save to Files — iOS puts no Calendar action in the
- * share sheet. OPENING the file is what makes iOS show the Add-to-Calendar preview. So we
- * navigate to a blob URL (no `download` attribute = open, not save).
+ * iOS reality: Apple gives web apps NO link that opens iCloud Calendar directly, and an
+ * installed home-screen app can't reliably open a file in a new page (that's the "blank
+ * page" failure). The one supported route is the SHARE SHEET: hand iOS the .ics and let
+ * her tap "Add to Calendar" (iOS lists it for .ics files) or "Save to Files" → open it.
+ * So navigator.share is primary; a plain download is the desktop fallback.
  */
 export async function addToCalendar(item, { dtstamp } = {}) {
   const ics = buildICS(item, { dtstamp });
   if (!ics) return { ok: false, reason: 'no-date' };
 
   const blob = new Blob([ics], { type: 'text/calendar' });
-  const url = URL.createObjectURL(blob);
+  const name = fileName(item);
 
-  // Open the calendar file. On iPhone this hands off to the system, which shows the
-  // "Add to Calendar" screen (calendar picker + Add). target=_blank keeps the app intact.
+  // Primary (iPhone/iPad): share the calendar file → iOS share sheet.
   try {
+    if (navigator.canShare && typeof File === 'function') {
+      const file = new File([blob], name, { type: 'text/calendar' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Add reminder to Calendar' });
+        return { ok: true, reason: 'shared' };
+      }
+    }
+  } catch (err) {
+    if (err && err.name === 'AbortError') return { ok: false, reason: 'cancelled' };
+    /* fall through to download */
+  }
+
+  // Fallback (desktop / no file-share): download the .ics → opens the OS calendar importer.
+  try {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    // deliberately NO a.download — that would SAVE the file instead of opening it.
+    a.href = url; a.download = name;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 15000);
-    return { ok: true, reason: 'opened' };
+    return { ok: true, reason: 'downloaded' };
   } catch {
-    // Last-ditch fallback: save the file so she can open it from Files → Add to Calendar.
-    try {
-      const a = document.createElement('a');
-      a.href = url; a.download = fileName(item);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 15000);
-      return { ok: true, reason: 'downloaded' };
-    } catch {
-      URL.revokeObjectURL(url);
-      return { ok: false, reason: 'failed' };
-    }
+    return { ok: false, reason: 'failed' };
   }
 }

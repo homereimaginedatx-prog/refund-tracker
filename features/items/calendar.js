@@ -93,41 +93,47 @@ function fileName(item) {
 
 /**
  * Generate the .ics for an item and offer it to iOS. On iPhone the Share Sheet opens with
- * "Add to Calendar" (she chooses the calendar); elsewhere it downloads the file.
+ * iOS shows its native "Add to Calendar" event screen (where she picks the calendar).
  * Returns { ok, reason }.
+ *
+ * IMPORTANT iOS detail: we OPEN the .ics, we do NOT "share" it. Sharing a calendar file
+ * only offers Messages / Mail / Copy / Save to Files — iOS puts no Calendar action in the
+ * share sheet. OPENING the file is what makes iOS show the Add-to-Calendar preview. So we
+ * navigate to a blob URL (no `download` attribute = open, not save).
  */
 export async function addToCalendar(item, { dtstamp } = {}) {
   const ics = buildICS(item, { dtstamp });
   if (!ics) return { ok: false, reason: 'no-date' };
 
   const blob = new Blob([ics], { type: 'text/calendar' });
-  const name = fileName(item);
+  const url = URL.createObjectURL(blob);
 
-  // Preferred path: native share sheet with a real file (iOS shows "Add to Calendar").
+  // Open the calendar file. On iPhone this hands off to the system, which shows the
+  // "Add to Calendar" screen (calendar picker + Add). target=_blank keeps the app intact.
   try {
-    if (navigator.canShare && typeof File === 'function') {
-      const file = new File([blob], name, { type: 'text/calendar' });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Add reminder to Calendar' });
-        return { ok: true, reason: 'shared' };
-      }
-    }
-  } catch (err) {
-    if (err && err.name === 'AbortError') return { ok: false, reason: 'cancelled' };
-    /* fall through to download */
-  }
-
-  // Fallback: trigger a download/open of the .ics (desktop, or browsers without file share).
-  try {
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = name;
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    // deliberately NO a.download — that would SAVE the file instead of opening it.
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-    return { ok: true, reason: 'downloaded' };
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+    return { ok: true, reason: 'opened' };
   } catch {
-    return { ok: false, reason: 'failed' };
+    // Last-ditch fallback: save the file so she can open it from Files → Add to Calendar.
+    try {
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName(item);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+      return { ok: true, reason: 'downloaded' };
+    } catch {
+      URL.revokeObjectURL(url);
+      return { ok: false, reason: 'failed' };
+    }
   }
 }

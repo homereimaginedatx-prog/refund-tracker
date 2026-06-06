@@ -87,8 +87,8 @@ async function quickStatus(item, toStatus) {
 async function addItemToCalendar(item) {
   try {
     const r = await addToCalendar(item, { dtstamp: nowISO() });
-    if (r.ok && r.reason === 'shared') toast('Choose “Add to Calendar,” then pick which calendar.', { duration: 6000 });
-    else if (r.ok && r.reason === 'downloaded') toast('Calendar file ready — open it to add the reminder.', { duration: 6000 });
+    if (r.ok && (r.reason === 'opened' || r.reason === 'shared')) toast('Opening Calendar — choose a calendar and tap Add.', { duration: 6000 });
+    else if (r.ok && r.reason === 'downloaded') toast('Saved the calendar file — tap it to add the reminder.', { duration: 6000 });
     else if (r.reason === 'cancelled') { /* she backed out — no message */ }
     else if (r.reason === 'no-date') toast('Add an “expect it back by” date first — tap Edit.');
     else toast('Could not create the calendar reminder.');

@@ -7,10 +7,11 @@
 import { registerFeature } from '../../core/registry.js';
 import { getAllItems, putItem } from '../../core/db.js';
 import { el, clear, toast } from '../../core/ui.js';
-import { computeSummary, withStatus, reconciles } from './model.js';
+import { STATUS, computeSummary, withStatus, reconciles } from './model.js';
 import { renderDashboard } from './dashboard.js';
 import { renderList } from './item-list.js';
 import { openItemForm } from './item-form.js';
+import { openReceiveFlow } from './receive-flow.js';
 
 const state = { container: null, items: [] };
 
@@ -38,7 +39,7 @@ function render() {
   if (state.items.length === 0) {
     c.appendChild(emptyState());
   } else {
-    c.appendChild(renderList(state.items, { onOpen: openEdit, onQuick: quickStatus }));
+    c.appendChild(renderList(state.items, { onOpen: openEdit, onQuick: quickStatus, onMarkUsed: markUsed }));
   }
 }
 
@@ -59,9 +60,24 @@ function openAdd() { openItemForm({ onSaved: refresh }); }
 function openEdit(item) { openItemForm({ item, onSaved: refresh }); }
 
 async function quickStatus(item, toStatus) {
+  // Marking Received opens the "how did you get it back?" flow (money vs store credit).
+  if (toStatus === STATUS.RECEIVED) {
+    openReceiveFlow(item, refresh);
+    return;
+  }
   try {
     await putItem(withStatus(item, toStatus));
     await refresh();
+  } catch (err) {
+    toast(err.message || 'Could not update — please try again.');
+  }
+}
+
+async function markUsed(item) {
+  try {
+    await putItem({ ...item, creditUsed: true });
+    await refresh();
+    toast('Store credit marked used.');
   } catch (err) {
     toast(err.message || 'Could not update — please try again.');
   }

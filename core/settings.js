@@ -1,10 +1,11 @@
 /* Settings sheet: backup, restore, version, and storage info.
    Backup/restore are the user-facing half of the durability safety net. */
 
-import { el, toast, formatDate, daysSince } from './ui.js';
+import { el, clear, toast, formatDate, daysSince } from './ui.js';
 import { openOverlay } from './overlay.js';
 import { exportBackup, importBackupFromFile } from './backup.js';
-import { getMeta } from './db.js';
+import { getMeta, clearData } from './db.js';
+import { getCategories, addCategory, removeCategory, renameCategory } from '../features/items/categories.js';
 
 export async function openSettings() {
   const body = el('div', { class: 'form settings' });
@@ -65,8 +66,64 @@ export async function openSettings() {
     text: 'Your data is stored only on this iPad. Back up to iCloud Drive regularly — the backup file is your safety copy if anything ever happens to the device.'
   }));
 
+  // --- Categories manager ---
+  const catSection = el('div', { class: 'settings-section' });
+  catSection.appendChild(el('h3', { class: 'settings-h3', text: 'Categories' }));
+  const catList = el('div', { class: 'cat-list' });
+  const newCat = el('input', { type: 'text', class: 'input', placeholder: 'Add a category' });
+  const addCatBtn = el('button', { class: 'btn btn-ghost', text: 'Add' });
+  catSection.appendChild(catList);
+  catSection.appendChild(el('div', { class: 'cat-add' }, [newCat, addCatBtn]));
+  body.appendChild(catSection);
+
+  async function renderCats() {
+    const cats = await getCategories();
+    clear(catList);
+    if (!cats.length) {
+      catList.appendChild(el('div', { class: 'cat-empty', text: 'No categories yet — add some here, or create them while adding an item.' }));
+      return;
+    }
+    for (const c of cats) {
+      catList.appendChild(el('div', { class: 'cat-chip' }, [
+        el('button', {
+          class: 'cat-name', text: c, title: 'Rename (updates all items)',
+          onClick: async () => {
+            const nn = prompt(`Rename "${c}" to:  (this updates every item using it)`, c);
+            if (nn && nn.trim() && nn.trim() !== c) { await renameCategory(c, nn.trim()); await renderCats(); toast('Category renamed everywhere.'); }
+          }
+        }),
+        el('button', { class: 'cat-x', text: '✕', 'aria-label': 'Remove ' + c, onClick: async () => { await removeCategory(c); await renderCats(); } })
+      ]));
+    }
+  }
+  addCatBtn.addEventListener('click', async () => {
+    const n = newCat.value.trim();
+    if (!n) return;
+    await addCategory(n); newCat.value = ''; await renderCats();
+  });
+  await renderCats();
+
   const closeBtn = el('button', { class: 'btn btn-ghost', text: 'Close', onClick: () => ov.close() });
   body.appendChild(el('div', { class: 'sheet-footer' }, [closeBtn]));
+
+  // --- Danger zone (intentionally at the very bottom, subtle, with confirm) ---
+  const danger = el('div', { class: 'danger-zone' }, [
+    el('button', {
+      class: 'danger-link', text: 'Clear all items…',
+      onClick: async () => {
+        const ok = confirm('This permanently deletes ALL items and receipts on this device. (Your category list is kept.) This cannot be undone — restore from a backup if you need them later. Continue?');
+        if (!ok) return;
+        try {
+          await clearData();
+          toast('All items cleared. Reloading…');
+          setTimeout(() => location.reload(), 800);
+        } catch (e) {
+          toast(e.message || 'Could not clear data.');
+        }
+      }
+    })
+  ]);
+  body.appendChild(danger);
 
   const ov = openOverlay(body);
 }

@@ -178,3 +178,34 @@ export async function replaceAll({ items = [], receipts = [], merchants = [], me
     }
   );
 }
+
+/** Rename a category across ALL items + merchant memory in ONE transaction (QB-style:
+    change the name once and it flows through everywhere). Atomic — all or nothing. */
+export async function remapCategory(oldName, newName) {
+  return withTx([STORES.items, STORES.merchants], 'readwrite', async (s) => {
+    const items = await reqDone(s[STORES.items].getAll());
+    for (const it of items) {
+      if (it.category === oldName) { it.category = newName; await reqDone(s[STORES.items].put(it)); }
+    }
+    const merchants = await reqDone(s[STORES.merchants].getAll());
+    for (const m of merchants) {
+      if (m.lastCategory === oldName) { m.lastCategory = newName; await reqDone(s[STORES.merchants].put(m)); }
+    }
+    return true;
+  });
+}
+
+/** Wipe items, receipts, and merchant memory — but KEEP meta (categories, schemaVersion,
+    lastBackupAt). Used by the "Clear all data" action. Atomic. */
+export async function clearData() {
+  return withTx(
+    [STORES.items, STORES.receipts, STORES.merchants],
+    'readwrite',
+    async (s) => {
+      await reqDone(s[STORES.items].clear());
+      await reqDone(s[STORES.receipts].clear());
+      await reqDone(s[STORES.merchants].clear());
+      return true;
+    }
+  );
+}

@@ -103,10 +103,12 @@ core/                     durable shared layer (rarely changes)
 
 features/items/           v1 feature: the refund/reimbursement tracker
   items.js                controller (registers the feature)
-  model.js                pure logic: statuses, types, computeSummary (TESTABLE)
+  model.js                pure logic: statuses, types, store credit, computeSummary (TESTABLE)
   dashboard.js            summary tiles
-  item-list.js            grouped register
-  item-form.js            add/edit + camera capture
+  item-list.js            grouped register + status stepper + store-credit cards
+  item-form.js            add/edit + camera capture + category/reference/credit fields
+  categories.js           user-defined category list (add/rename-flows-through/remove)
+  receive-flow.js         "money back vs store credit" chooser on Received
 
 tests.html                zero-dep self tests for the pure logic
 ```

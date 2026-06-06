@@ -22,6 +22,12 @@ export function renderDashboard(summary) {
     el('div', { class: 'tile-sub', text: `${summary.receivedCount} done` })
   ]);
 
+  const credit = el('div', { class: 'tile tile-mini' + (summary.storeCreditCount ? ' tile-credit' : '') }, [
+    el('div', { class: 'tile-label', text: 'Store credit to use' }),
+    el('div', { class: 'tile-amount-mini', text: centsToStr(summary.storeCreditCents) }),
+    el('div', { class: 'tile-sub', text: summary.storeCreditCount ? `${summary.storeCreditCount} to spend` : 'none' })
+  ]);
+
   const tracked = el('div', { class: 'tile tile-mini' }, [
     el('div', { class: 'tile-label', text: 'Tracked' }),
     el('div', { class: 'tile-amount-mini', text: String(summary.total) }),
@@ -30,6 +36,6 @@ export function renderDashboard(summary) {
 
   return el('section', { class: 'dashboard' }, [
     hero,
-    el('div', { class: 'tile-row' }, [received, tracked])
+    el('div', { class: 'tile-row' }, [received, credit, tracked])
   ]);
 }

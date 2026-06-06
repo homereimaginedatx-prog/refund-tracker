@@ -28,7 +28,8 @@
   <script type="module">
     import { centsToStr, parseAmountToCents, daysSince } from './core/ui.js';
     import {
-      STATUS, TYPE, makeItem, withStatus, computeSummary, reconciles
+      STATUS, TYPE, REFUND, makeItem, withStatus, computeSummary, reconciles, quickActions,
+      getViewGroup, isStoreCredit, creditDaysLeft, creditExpired, creditExpiringSoon
     } from './features/items/model.js';
     import { buildEnvelope, validateEnvelope, blobToDataURL, dataURLToBlob } from './core/backup.js';
 
@@ -86,6 +87,45 @@
     eq('total', s.total, 5);
     check('reconciles: every item accounted for once', reconciles(items, s));
     check('item with null category still counted', s.outstandingCount === 3);
+
+    // every status is reversible (the accidental-tap fix): pending can go back to na
+    check('pending is reversible to to-do', quickActions(STATUS.PENDING).some((x) => x.to === STATUS.NA));
+    check('received can reopen to pending', quickActions(STATUS.RECEIVED).some((x) => x.to === STATUS.PENDING));
+
+    // optional reference field round-trips through makeItem
+    const withRef = makeItem({ payee: 'Best Buy', amount: 5000, reference: 'RMA-123' });
+    eq('makeItem keeps reference', withRef.reference, 'RMA-123');
+    const noRef = makeItem({ payee: 'X', amount: 100 });
+    eq('makeItem reference defaults null', noRef.reference, null);
+
+    // ---- store credit ----
+    const cashItem = makeItem({ payee: 'Cash', amount: 1000, status: STATUS.RECEIVED, refundMethod: REFUND.CASH });
+    eq('cash received → received group', getViewGroup(cashItem), 'received');
+    check('cash received is not store credit', !isStoreCredit(cashItem));
+
+    const creditItem = makeItem({ payee: 'Store', amount: 5000, status: STATUS.RECEIVED, refundMethod: REFUND.CREDIT });
+    eq('unused credit → credit group', getViewGroup(creditItem), 'credit');
+    check('unused credit is store credit', isStoreCredit(creditItem));
+
+    const usedCredit = makeItem({ payee: 'Store', amount: 5000, status: STATUS.RECEIVED, refundMethod: REFUND.CREDIT, creditUsed: true });
+    eq('used credit → received group', getViewGroup(usedCredit), 'received');
+
+    const cs = computeSummary([cashItem, creditItem, usedCredit]);
+    eq('storeCredit cents = unused only', cs.storeCreditCents, 5000);
+    eq('storeCredit count', cs.storeCreditCount, 1);
+    eq('received cents = cash + used credit', cs.receivedCents, 1000 + 5000);
+    check('reconciles with credits', reconciles([cashItem, creditItem, usedCredit], cs));
+
+    // ---- expiration ----
+    const at = new Date('2026-06-10T12:00:00');
+    const expSoon = makeItem({ payee: 'S', amount: 100, creditExpires: '2026-06-20' });
+    check('future credit has positive days left', creditDaysLeft(expSoon, at) > 0);
+    check('expiring soon flagged', creditExpiringSoon(expSoon, 30, at));
+    check('soon credit not expired', !creditExpired(expSoon, at));
+    const expPast = makeItem({ payee: 'S', amount: 100, creditExpires: '2026-06-01' });
+    check('past credit detected as expired', creditExpired(expPast, at));
+    const noExp = makeItem({ payee: 'S', amount: 100 });
+    eq('no expiry → null days', creditDaysLeft(noExp, at), null);
 
     const moved = withStatus(a, STATUS.RECEIVED);
     check('withStatus changes status', moved.status === STATUS.RECEIVED);

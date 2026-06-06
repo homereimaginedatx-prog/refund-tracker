@@ -17,6 +17,9 @@
   --pending: #2563eb; --pending-bg: #dbeafe;
   --received: #059669; --received-bg: #d1fae5;
   --cancelled: #6b7280; --cancelled-bg: #eceef3;
+  --credit: #7c3aed; --credit-bg: #ede9fe;
+  --warn: #b45309; --warn-bg: #fef3c7;
+  --danger: #dc2626; --danger-bg: #fee2e2;
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -34,6 +37,7 @@
     --line: #2a3150;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
     --na-bg: #3a2c0c; --pending-bg: #122a52; --received-bg: #0c3a2a; --cancelled-bg: #262b40;
+    --credit-bg: #2a1a4d; --warn-bg: #3a2c0c; --danger-bg: #3a1414;
   }
 }
 
@@ -87,7 +91,7 @@ h1, h2, h3 { margin: 0; }
 .tile-amount { font-size: 40px; font-weight: 800; letter-spacing: -.03em; margin: 4px 0 2px; }
 .tile-amount-mini { font-size: 24px; font-weight: 800; letter-spacing: -.02em; margin: 2px 0; }
 .tile-sub { font-size: 14px; color: var(--text-dim); }
-.tile-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tile-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 12px; }
 .tile-mini { padding: 14px 16px; }
 
 /* ---- Add row ---- */
@@ -232,3 +236,79 @@ h1, h2, h3 { margin: 0; }
 /* ---- Fatal ---- */
 .fatal { text-align: center; padding: 60px 24px; }
 .fatal .btn { margin-top: 16px; }
+
+/* ---- Form extras (category / reference) ---- */
+.hidden { display: none !important; }
+.sub-field { margin: -6px 0 14px; }
+.check-row { display: flex; align-items: center; gap: 10px; margin: 4px 0 8px; font-weight: 600; color: var(--text); }
+.check-row input[type="checkbox"] { width: 20px; height: 20px; }
+
+/* ---- Settings: categories ---- */
+.settings-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.settings-h3 { font-size: 15px; margin-bottom: 10px; }
+.cat-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.cat-empty { font-size: 13px; color: var(--text-dim); }
+.cat-chip { display: inline-flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 14px; font-size: 14px; }
+.cat-x { border: none; background: transparent; color: var(--text-dim); font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 50%; }
+.cat-x:active { transform: scale(.9); }
+.cat-add { display: flex; gap: 8px; }
+.cat-add .input { flex: 1; }
+
+/* ---- Settings: danger zone ---- */
+.danger-zone { margin-top: 26px; text-align: center; }
+.danger-link { background: transparent; border: none; color: var(--text-dim); font-size: 13px; text-decoration: underline; padding: 8px; }
+.danger-link:active { color: #dc2626; }
+
+/* ---- Status stepper (on each card) ---- */
+.list-tip { font-size: 12.5px; color: var(--text-dim); padding: 2px 4px 6px; }
+.stepper { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.step {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1.5px solid var(--line); background: var(--surface-2); color: var(--text-dim);
+  border-radius: 999px; padding: 8px 13px; font-size: 13px; font-weight: 700; line-height: 1;
+}
+.step:active { transform: scale(.95); }
+.step-dot { font-size: 11px; }
+.step-done { color: var(--received); background: var(--received-bg); border-color: transparent; }
+.step-current { color: #fff; background: var(--brand); border-color: var(--brand); }
+.step-todo { opacity: .7; }
+.step-next { color: var(--brand); background: var(--surface); border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 16%, transparent); }
+.step-arrow { color: var(--text-dim); font-size: 13px; }
+.cancelled-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+
+/* ---- Card footer links ---- */
+.card-foot { display: flex; gap: 18px; margin-top: 12px; }
+.link-btn { background: none; border: none; color: var(--text-dim); font-size: 13px; text-decoration: underline; padding: 4px 0; }
+.link-btn.danger:active { color: #dc2626; }
+
+/* ---- Settings: category rename ---- */
+.cat-name { background: none; border: none; color: var(--text); font: inherit; font-size: 14px; font-weight: 600; padding: 0; text-decoration: underline dotted; cursor: pointer; }
+
+/* ---- Store credit ---- */
+.pill-credit { color: var(--credit); background: var(--credit-bg); }
+.tile-credit { outline: 2px solid var(--credit); }
+.group-title-credit { color: var(--credit); }
+.card-credit { border-color: color-mix(in srgb, var(--credit) 40%, var(--line)); }
+.credit-code {
+  display: inline-block; margin-top: 8px; background: var(--credit-bg); color: var(--credit);
+  border: 1px dashed color-mix(in srgb, var(--credit) 50%, transparent); border-radius: 8px;
+  padding: 6px 10px; font-size: 14px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.exp-badge { display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+.exp-ok { color: var(--text-dim); background: var(--surface-2); }
+.exp-soon { color: var(--warn); background: var(--warn-bg); }
+.exp-bad { color: var(--danger); background: var(--danger-bg); }
+
+/* ---- Receive flow (money vs store credit) ---- */
+.receive-q { color: var(--text-dim); margin: 0 0 16px; }
+.choice-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.choice-btn {
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  background: var(--surface-2); border: 1.5px solid var(--line); color: var(--text);
+  border-radius: 14px; padding: 16px; font-weight: 700;
+}
+.choice-btn small { display: block; font-weight: 500; color: var(--text-dim); margin-top: 2px; }
+.choice-emoji { font-size: 26px; }
+.choice-on { border-color: var(--credit); box-shadow: 0 0 0 3px color-mix(in srgb, var(--credit) 18%, transparent); }
+.credit-fields { margin-top: 18px; }
+@media (max-width: 460px) { .choice-row { grid-template-columns: 1fr; } }

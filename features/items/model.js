@@ -6,13 +6,19 @@ import { uid, nowISO, todayISODate } from '../../core/ui.js';
 export const STATUS = Object.freeze({
   NA: 'na',           // still on the user: needs to be returned / submitted
   PENDING: 'pending', // waiting on the money to come back
-  RECEIVED: 'received', // done — money received
+  RECEIVED: 'received', // done — money or store credit received
   CANCELLED: 'cancelled' // closed without money (soft delete; never removed)
 });
 
 export const TYPE = Object.freeze({
   RETURN: 'retail-return',
   REIMBURSEMENT: 'reimbursement-owed'
+});
+
+/** How the money came back, recorded when an item is marked Received. */
+export const REFUND = Object.freeze({
+  CASH: 'cash',     // money back to card / account — fully done
+  CREDIT: 'credit'  // store credit / gift card — value she still has to spend
 });
 
 export const STATUS_ORDER = [STATUS.NA, STATUS.PENDING, STATUS.RECEIVED, STATUS.CANCELLED];
@@ -22,33 +28,48 @@ export function isOutstanding(status) {
   return status === STATUS.NA || status === STATUS.PENDING;
 }
 
+/** A received item that is store credit and not yet spent — money she still holds. */
+export function isStoreCredit(item) {
+  return item.status === STATUS.RECEIVED && item.refundMethod === REFUND.CREDIT && !item.creditUsed;
+}
+
 export function typeLabel(type) {
   return type === TYPE.REIMBURSEMENT ? 'Reimbursement' : 'Return';
 }
 
-/** Status labels are phrased to the type so they read naturally. */
+/** Status labels phrased to the type so they read naturally. */
 export function statusLabel(status, type) {
   const reimb = type === TYPE.REIMBURSEMENT;
   switch (status) {
-    case STATUS.NA: return reimb ? 'To submit' : 'To return';
-    case STATUS.PENDING: return reimb ? 'Awaiting reimbursement' : 'Awaiting refund';
+    case STATUS.NA: return reimb ? 'Need to submit' : 'Need to return';
+    case STATUS.PENDING: return reimb ? 'Waiting on reimbursement' : 'Waiting on refund';
     case STATUS.RECEIVED: return 'Received';
     case STATUS.CANCELLED: return 'Cancelled';
     default: return status;
   }
 }
 
-export function statusGroupLabel(status) {
-  switch (status) {
-    case STATUS.NA: return 'To do';
-    case STATUS.PENDING: return 'Awaiting money';
-    case STATUS.RECEIVED: return 'Received';
-    case STATUS.CANCELLED: return 'Cancelled';
-    default: return status;
-  }
+/* ----- View grouping -----
+   The register groups by a derived "view group", not raw status, so unspent store credits
+   surface in their own section instead of being buried in Received. */
+export const VIEW_ORDER = ['todo', 'waiting', 'credit', 'received', 'cancelled'];
+
+export function getViewGroup(item) {
+  if (item.status === STATUS.CANCELLED) return 'cancelled';
+  if (item.status === STATUS.NA) return 'todo';
+  if (item.status === STATUS.PENDING) return 'waiting';
+  if (isStoreCredit(item)) return 'credit';
+  return 'received';
 }
 
-/** Quick next-step actions offered on a card, by current status. */
+export function viewGroupLabel(group) {
+  return {
+    todo: 'To do', waiting: 'Waiting on money', credit: 'Store credit to use',
+    received: 'Received', cancelled: 'Cancelled'
+  }[group] || group;
+}
+
+/** Quick next-step actions (kept for reference/tests; the card uses a tappable stepper). */
 export function quickActions(status) {
   switch (status) {
     case STATUS.NA: return [
@@ -56,10 +77,11 @@ export function quickActions(status) {
       { label: 'Received', to: STATUS.RECEIVED, primary: true }
     ];
     case STATUS.PENDING: return [
-      { label: 'Mark received', to: STATUS.RECEIVED, primary: true }
+      { label: '↩ Back', to: STATUS.NA },
+      { label: 'Received', to: STATUS.RECEIVED, primary: true }
     ];
     case STATUS.RECEIVED: return [
-      { label: 'Reopen', to: STATUS.PENDING }
+      { label: '↩ Reopen', to: STATUS.PENDING }
     ];
     case STATUS.CANCELLED: return [
       { label: 'Restore', to: STATUS.NA }
@@ -67,6 +89,26 @@ export function quickActions(status) {
     default: return [];
   }
 }
+
+// ---- Expiration helpers (store credit) ------------------------------------
+
+/** Whole days until a credit expires (negative = already expired); null if no date. */
+export function creditDaysLeft(item, now = new Date()) {
+  if (!item.creditExpires) return null;
+  const end = new Date(item.creditExpires + 'T23:59:59');
+  if (isNaN(end.getTime())) return null;
+  return Math.ceil((end.getTime() - now.getTime()) / 86400000);
+}
+export function creditExpired(item, now = new Date()) {
+  const d = creditDaysLeft(item, now);
+  return d != null && d < 0;
+}
+export function creditExpiringSoon(item, withinDays = 30, now = new Date()) {
+  const d = creditDaysLeft(item, now);
+  return d != null && d >= 0 && d <= withinDays;
+}
+
+// ---- Build / edit ----------------------------------------------------------
 
 /** Build a normalized new item from form fields. Stamps id + timestamps. */
 export function makeItem(fields) {
@@ -79,7 +121,12 @@ export function makeItem(fields) {
     type: fields.type || TYPE.RETURN,
     category: fields.category ? fields.category.trim() : null,
     purpose: fields.purpose ? fields.purpose.trim() : null,
+    reference: fields.reference ? fields.reference.trim() : null,
     receiptRef: fields.receiptRef || null,
+    refundMethod: fields.refundMethod || null,
+    creditCode: fields.creditCode ? fields.creditCode.trim() : null,
+    creditExpires: fields.creditExpires || null,
+    creditUsed: !!fields.creditUsed,
     status: fields.status || STATUS.NA,
     statusChangedDate: created,
     createdDate: created
@@ -98,7 +145,12 @@ export function applyEdits(existing, fields) {
     type: fields.type || existing.type,
     category: fields.category ? fields.category.trim() : null,
     purpose: fields.purpose ? fields.purpose.trim() : null,
+    reference: fields.reference !== undefined ? (fields.reference ? fields.reference.trim() : null) : existing.reference,
     receiptRef: fields.receiptRef !== undefined ? fields.receiptRef : existing.receiptRef,
+    refundMethod: fields.refundMethod !== undefined ? fields.refundMethod : existing.refundMethod,
+    creditCode: fields.creditCode !== undefined ? (fields.creditCode ? fields.creditCode.trim() : null) : existing.creditCode,
+    creditExpires: fields.creditExpires !== undefined ? (fields.creditExpires || null) : existing.creditExpires,
+    creditUsed: fields.creditUsed !== undefined ? !!fields.creditUsed : existing.creditUsed,
     status: fields.status || existing.status,
     statusChangedDate: statusChanged ? nowISO() : existing.statusChangedDate
   };
@@ -110,44 +162,41 @@ export function withStatus(item, status) {
   return { ...item, status, statusChangedDate: nowISO() };
 }
 
-/** Validate form fields. Returns { ok, errors:{field:msg}, amount } — never throws. */
+/** Validate form fields. Returns { ok, errors:{field:msg} } — never throws. */
 export function validateFields({ payee, amountText }) {
   const errors = {};
   if (!payee || !payee.trim()) errors.payee = 'Who is this with?';
-  // amount parsing is done by the caller (ui.parseAmountToCents); we just check presence here
   if (amountText == null || String(amountText).trim() === '') errors.amount = 'Enter an amount.';
   return { ok: Object.keys(errors).length === 0, errors };
 }
 
 /* ----- THE integrity-critical computation -----
    The dashboard totals are ALWAYS this pure function of the full item list, recomputed
-   from scratch. There is no separate stored tally that could drift. Every item lands in
-   exactly one status bucket, so nothing can silently disappear. */
+   from scratch. Every item lands in exactly one bucket, so nothing can silently disappear. */
 export function computeSummary(items) {
   const out = {
     total: items.length,
     outstandingCents: 0, outstandingCount: 0,
     receivedCents: 0, receivedCount: 0,
-    cancelledCount: 0,
-    byStatus: { [STATUS.NA]: [], [STATUS.PENDING]: [], [STATUS.RECEIVED]: [], [STATUS.CANCELLED]: [] }
+    storeCreditCents: 0, storeCreditCount: 0,
+    cancelledCount: 0
   };
   for (const it of items) {
-    const bucket = out.byStatus[it.status] || (out.byStatus[it.status] = []);
-    bucket.push(it);
+    const amt = it.amount | 0;
     if (isOutstanding(it.status)) {
-      out.outstandingCents += it.amount | 0;
-      out.outstandingCount += 1;
-    } else if (it.status === STATUS.RECEIVED) {
-      out.receivedCents += it.amount | 0;
-      out.receivedCount += 1;
+      out.outstandingCents += amt; out.outstandingCount += 1;
     } else if (it.status === STATUS.CANCELLED) {
       out.cancelledCount += 1;
+    } else if (it.status === STATUS.RECEIVED) {
+      if (isStoreCredit(it)) { out.storeCreditCents += amt; out.storeCreditCount += 1; }
+      else { out.receivedCents += amt; out.receivedCount += 1; }
     }
   }
   return out;
 }
 
-/** Reconciliation check used by tests + the UI: every item is accounted for exactly once. */
+/** Reconciliation check: every item is accounted for in exactly one bucket. */
 export function reconciles(items, summary) {
-  return summary.total === (summary.outstandingCount + summary.receivedCount + summary.cancelledCount);
+  return summary.total ===
+    (summary.outstandingCount + summary.receivedCount + summary.storeCreditCount + summary.cancelledCount);
 }

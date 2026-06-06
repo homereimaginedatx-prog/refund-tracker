@@ -33,6 +33,7 @@ async function startApp() {
   try {
     await runMigrations();
     await mountShell(root);
+    startVersionWatch();
   } catch (err) {
     fatal(err);
   }
@@ -84,31 +85,48 @@ function shareSVG() {
 
 // ---- service worker + updates ---------------------------------------------
 
+const BOOT_VERSION = String(globalThis.APP_VERSION || '');
+
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register('./sw.js');
+      // Activate a new service worker's cache silently. We deliberately do NOT auto-reload
+      // on controllerchange — the page is never yanked out from under the user mid-edit.
       reg.addEventListener('updatefound', () => {
         const sw = reg.installing;
-        if (!sw) return;
-        sw.addEventListener('statechange', () => {
-          if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-            toast('A new version is ready.', {
-              actionLabel: 'Refresh', sticky: true,
-              onAction: () => sw.postMessage({ type: 'SKIP_WAITING' })
-            });
-          }
+        if (sw) sw.addEventListener('statechange', () => {
+          if (sw.state === 'installed') sw.postMessage({ type: 'SKIP_WAITING' });
         });
       });
-      let reloading = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (reloading) return;
-        reloading = true;
-        location.reload();
-      });
-    } catch { /* offline support is optional; app still works */ }
+    } catch { /* offline support is optional; the app still works */ }
   });
+}
+
+/* Update notification: check whether a newer version has been deployed and, if so, show a
+   non-blocking banner with a one-tap Refresh. The reload ONLY happens when she taps it, so
+   she can finish editing first. Saved data is in the database and survives reloads. */
+let updateOffered = false;
+async function checkForNewVersion() {
+  if (updateOffered) return;
+  try {
+    const res = await fetch('./version.js', { cache: 'no-store' });
+    if (!res.ok) return;
+    const m = (await res.text()).match(/APP_VERSION\s*=\s*['"]([^'"]+)['"]/);
+    const latest = m && m[1];
+    if (latest && BOOT_VERSION && latest !== BOOT_VERSION) {
+      updateOffered = true;
+      toast('A new version is available.', { sticky: true, actionLabel: 'Refresh', onAction: () => location.reload() });
+    }
+  } catch { /* offline — ignore */ }
+}
+
+function startVersionWatch() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForNewVersion();
+  });
+  setTimeout(checkForNewVersion, 15000);
 }
 
 // ---- persistent storage ----------------------------------------------------

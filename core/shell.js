@@ -56,13 +56,16 @@ export async function mountShell(root) {
 async function checkBackupReminder(banner) {
   try {
     const [items, last] = await Promise.all([getAllItems(), getMeta('lastBackupAt', null)]);
-    const stale = !last || daysSince(last) >= 7;
-    if (items.length === 0 || !stale) return;
+    // Don't nag: only nudge once there are a few items (first backup) or it's been a while.
+    const stale = !last ? items.length >= 3 : daysSince(last) >= 14;
+    if (!stale) return;
 
     const backupBtn = el('button', { class: 'btn btn-small btn-primary', text: 'Back up' });
-    const dismiss = el('button', { class: 'btn btn-small btn-ghost', text: 'Later', onClick: () => bar.remove() });
+    const dismiss = el('button', { class: 'btn btn-small btn-ghost', text: 'Not now', onClick: () => bar.remove() });
     const bar = el('div', { class: 'banner' }, [
-      el('span', { class: 'banner-text', text: last ? 'It’s been a while — back up your data to be safe.' : 'Protect your data: make your first backup.' }),
+      el('span', { class: 'banner-text', text: last
+        ? 'Tip: it’s been a while — save a fresh copy to iCloud so you don’t lose anything.'
+        : 'Tip: save a copy to iCloud so your data is safe if anything happens to your iPhone.' }),
       el('div', { class: 'banner-actions' }, [backupBtn, dismiss])
     ]);
     backupBtn.addEventListener('click', async () => {

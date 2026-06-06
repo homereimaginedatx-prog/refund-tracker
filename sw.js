@@ -51,39 +51,27 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
-  if (isNavigation(request)) {
-    // Network-first for the app document.
-    event.respondWith((async () => {
-      try {
-        const fresh = await fetch(request);
-        const cache = await caches.open(CACHE);
-        cache.put('./index.html', fresh.clone()).catch(() => {});
-        return fresh;
-      } catch {
-        const cache = await caches.open(CACHE);
-        return (await cache.match('./index.html')) || (await cache.match('./')) ||
-          new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
-      }
-    })());
-    return;
-  }
-
-  // Cache-first for same-origin static assets; fall back to network and cache it.
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // NETWORK-FIRST for everything same-origin: always the latest code when online, and the
+  // cached copy keeps the app working offline. Eliminates the "stuck on an old version" trap.
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const cached = await cache.match(request);
-    if (cached) return cached;
     try {
       const fresh = await fetch(request);
-      if (fresh && fresh.status === 200 && fresh.type === 'basic') {
+      if (fresh && fresh.status === 200 && (fresh.type === 'basic' || fresh.type === 'default')) {
         cache.put(request, fresh.clone()).catch(() => {});
       }
       return fresh;
-    } catch (err) {
-      return cached || new Response('', { status: 504 });
+    } catch {
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      if (isNavigation(request)) {
+        return (await cache.match('./index.html')) || (await cache.match('./')) ||
+          new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+      }
+      return new Response('', { status: 504 });
     }
   })());
 });

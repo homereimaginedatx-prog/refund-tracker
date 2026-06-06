@@ -5,7 +5,8 @@
 import { el, centsToStr, formatDate, agingLabel, toast } from '../../core/ui.js';
 import {
   STATUS, VIEW_ORDER, getViewGroup, viewGroupLabel, isOutstanding, typeLabel,
-  creditDaysLeft, creditExpired, creditExpiringSoon
+  creditDaysLeft, creditExpired, creditExpiringSoon,
+  expectDaysLeft, isOverdue, isDueSoon
 } from './model.js';
 
 const STEPS = [
@@ -64,10 +65,14 @@ function renderCard(item, handlers) {
   ]);
   if (isOutstanding(item.status)) {
     left.appendChild(el('div', { class: 'card-aging', text: `waiting ${agingLabel(item.statusChangedDate)}` }));
+    if (item.expectBy) left.appendChild(renderDueBadge(item));
   }
   const right = el('div', { class: 'card-right' }, [el('div', { class: 'card-amount', text: centsToStr(item.amount) })]);
 
   const foot = el('div', { class: 'card-foot' }, [
+    isOutstanding(item.status) && item.expectBy
+      ? el('button', { class: 'link-btn', text: '📅 Add to Calendar', onClick: () => handlers.onAddToCalendar && handlers.onAddToCalendar(item) })
+      : null,
     el('button', { class: 'link-btn', text: 'Edit', onClick: () => handlers.onOpen && handlers.onOpen(item) }),
     el('button', { class: 'link-btn danger', text: 'Cancel', onClick: () => handlers.onQuick && handlers.onQuick(item, STATUS.CANCELLED) })
   ]);
@@ -77,6 +82,21 @@ function renderCard(item, handlers) {
     renderStepper(item, handlers),
     foot
   ]);
+}
+
+/* Expected-back badge: neutral by default, amber when it's coming up, red once overdue. */
+function renderDueBadge(item) {
+  const days = expectDaysLeft(item);
+  let cls = 'due-ok', text = `Expected back ${formatDate(item.expectBy)}`;
+  if (isOverdue(item)) {
+    const over = Math.abs(days);
+    cls = 'due-over';
+    text = `⚠ Overdue ${over} day${over === 1 ? '' : 's'} — time to follow up`;
+  } else if (isDueSoon(item)) {
+    cls = 'due-soon';
+    text = days === 0 ? '⏰ Expected back today' : `⏰ Expected back in ${days} day${days === 1 ? '' : 's'}`;
+  }
+  return el('div', { class: `due-badge ${cls}`, text });
 }
 
 /* Tappable progress stepper. Current step is filled (●); earlier steps show ✓; the next

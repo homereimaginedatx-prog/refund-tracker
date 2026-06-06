@@ -108,6 +108,36 @@ export function creditExpiringSoon(item, withinDays = 30, now = new Date()) {
   return d != null && d >= 0 && d <= withinDays;
 }
 
+// ---- Expected-back / follow-up helpers ------------------------------------
+// An optional "expect it back by" date powers in-app nudges and the calendar export.
+// These only matter while an item is still outstanding (NA/PENDING).
+
+/** Whole days until the expected-back date (negative = overdue); null if no date. */
+export function expectDaysLeft(item, now = new Date()) {
+  if (!item.expectBy) return null;
+  const end = new Date(item.expectBy + 'T23:59:59');
+  if (isNaN(end.getTime())) return null;
+  return Math.ceil((end.getTime() - now.getTime()) / 86400000);
+}
+/** Past its expected-back date and still not received → time to follow up. */
+export function isOverdue(item, now = new Date()) {
+  if (!isOutstanding(item.status)) return false;
+  const d = expectDaysLeft(item, now);
+  return d != null && d < 0;
+}
+/** Expected back within the next few days (and still outstanding). */
+export function isDueSoon(item, withinDays = 3, now = new Date()) {
+  if (!isOutstanding(item.status)) return false;
+  const d = expectDaysLeft(item, now);
+  return d != null && d >= 0 && d <= withinDays;
+}
+/** Count of outstanding items that are past their expected-back date. */
+export function countOverdue(items, now = new Date()) {
+  let n = 0;
+  for (const it of items) if (isOverdue(it, now)) n += 1;
+  return n;
+}
+
 // ---- Build / edit ----------------------------------------------------------
 
 /** Build a normalized new item from form fields. Stamps id + timestamps. */
@@ -120,6 +150,7 @@ export function makeItem(fields) {
     amount: fields.amount | 0,            // integer cents
     type: fields.type || TYPE.RETURN,
     category: fields.category ? fields.category.trim() : null,
+    expectBy: fields.expectBy || null,   // optional "expect it back by" date
     purpose: fields.purpose ? fields.purpose.trim() : null,
     reference: fields.reference ? fields.reference.trim() : null,
     receiptRef: fields.receiptRef || null,
@@ -144,6 +175,7 @@ export function applyEdits(existing, fields) {
     amount: fields.amount | 0,
     type: fields.type || existing.type,
     category: fields.category ? fields.category.trim() : null,
+    expectBy: fields.expectBy !== undefined ? (fields.expectBy || null) : existing.expectBy,
     purpose: fields.purpose ? fields.purpose.trim() : null,
     reference: fields.reference !== undefined ? (fields.reference ? fields.reference.trim() : null) : existing.reference,
     receiptRef: fields.receiptRef !== undefined ? fields.receiptRef : existing.receiptRef,

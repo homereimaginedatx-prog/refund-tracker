@@ -4,7 +4,7 @@
 import { el } from '../../core/ui.js';
 import { centsToStr } from '../../core/ui.js';
 
-export function renderDashboard(summary) {
+export function renderDashboard(summary, { overdueCount = 0 } = {}) {
   const hero = el('div', { class: 'tile tile-hero' }, [
     el('div', { class: 'tile-label', text: "You're waiting on" }),
     el('div', { class: 'tile-amount', text: centsToStr(summary.outstandingCents) }),
@@ -13,7 +13,10 @@ export function renderDashboard(summary) {
       text: summary.outstandingCount === 1
         ? '1 item outstanding'
         : `${summary.outstandingCount} items outstanding`
-    })
+    }),
+    overdueCount > 0
+      ? el('div', { class: 'tile-flag', text: `⚠ ${overdueCount} past its expected date — follow up` })
+      : null
   ]);
 
   const received = el('div', { class: 'tile tile-mini' }, [

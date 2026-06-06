@@ -6,12 +6,13 @@
 
 import { registerFeature } from '../../core/registry.js';
 import { getAllItems, putItem } from '../../core/db.js';
-import { el, clear, toast } from '../../core/ui.js';
-import { STATUS, computeSummary, withStatus, reconciles } from './model.js';
+import { el, clear, toast, nowISO } from '../../core/ui.js';
+import { STATUS, computeSummary, withStatus, reconciles, countOverdue } from './model.js';
 import { renderDashboard } from './dashboard.js';
 import { renderList } from './item-list.js';
 import { openItemForm } from './item-form.js';
 import { openReceiveFlow } from './receive-flow.js';
+import { addToCalendar } from './calendar.js';
 
 const state = { container: null, items: [] };
 
@@ -30,7 +31,7 @@ function render() {
     console.warn('Summary did not reconcile', summary);
   }
 
-  c.appendChild(renderDashboard(summary));
+  c.appendChild(renderDashboard(summary, { overdueCount: countOverdue(state.items) }));
 
   c.appendChild(el('div', { class: 'add-row' }, [
     el('button', { class: 'btn btn-primary btn-add', text: '＋  Add item', onClick: openAdd })
@@ -39,7 +40,9 @@ function render() {
   if (state.items.length === 0) {
     c.appendChild(emptyState());
   } else {
-    c.appendChild(renderList(state.items, { onOpen: openEdit, onQuick: quickStatus, onMarkUsed: markUsed }));
+    c.appendChild(renderList(state.items, {
+      onOpen: openEdit, onQuick: quickStatus, onMarkUsed: markUsed, onAddToCalendar: addItemToCalendar
+    }));
   }
 }
 
@@ -70,6 +73,21 @@ async function quickStatus(item, toStatus) {
     await refresh();
   } catch (err) {
     toast(err.message || 'Could not update — please try again.');
+  }
+}
+
+/* One-way calendar export. iOS shows its own "Add to Calendar" sheet (she picks the
+   calendar); we never read the event back, so the app stays the source of truth. */
+async function addItemToCalendar(item) {
+  try {
+    const r = await addToCalendar(item, { dtstamp: nowISO() });
+    if (r.ok && r.reason === 'shared') toast('Choose “Add to Calendar,” then pick which calendar.', { duration: 6000 });
+    else if (r.ok && r.reason === 'downloaded') toast('Calendar file ready — open it to add the reminder.', { duration: 6000 });
+    else if (r.reason === 'cancelled') { /* she backed out — no message */ }
+    else if (r.reason === 'no-date') toast('Add an “expect it back by” date first — tap Edit.');
+    else toast('Could not create the calendar reminder.');
+  } catch (err) {
+    toast(err.message || 'Could not create the calendar reminder.');
   }
 }
 

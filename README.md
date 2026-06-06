@@ -109,6 +109,7 @@ features/items/           v1 feature: the refund/reimbursement tracker
   item-form.js            add/edit + camera capture + category/reference/credit fields
   categories.js           user-defined category list (add/rename-flows-through/remove)
   receive-flow.js         "money back vs store credit" chooser on Received
+  calendar.js             one-way .ics export (TESTABLE buildICS) + iOS "Add to Calendar"
 
 tests.html                zero-dep self tests for the pure logic
 ```
@@ -121,6 +122,23 @@ tests.html                zero-dep self tests for the pure logic
 - Every item is always in exactly one status bucket — nothing can fall into limbo.
 - Writes are **atomic** (IndexedDB transactions) and **errors are surfaced**, never
   swallowed — a failed save keeps your input and tells you.
+
+### Reminders & calendar (why it's one-way)
+Each item can have an optional **"Expect it back by"** date. The app uses it for **in-app
+nudges** — outstanding items show *Expected back / due soon / ⚠ overdue*, and the dashboard
+flags how many are past due. This is the real reminder, and it's always correct because it's
+all on one device.
+
+There's also a one-tap **📅 Add to Calendar** on any waiting item with a date. It generates a
+standard `.ics` and hands it to iOS, which shows its own *Add to Calendar* sheet where she
+**picks the calendar/group**. The event includes a 9 a.m. alert on the expected date.
+
+This is deliberately **one-way (app → calendar)**. A web app has **no API to read or write
+the iOS Calendar**, so the app can never see edits made to the calendar event. True two-way
+sync would require either a **server** talking to iCloud over CalDAV (a paid, account-based
+service) or a **native App Store app** ($99/yr + review) — both of which break this project's
+free / no-server / no-account guarantees. So the app stays the source of truth; the calendar
+entry is a convenience copy. If a date changes, change it in the app and re-tap Add to Calendar.
 
 ### Adding a future building block
 Drop a folder under `features/`, and call `registerFeature({ id, label, icon, mount })`.

@@ -29,9 +29,11 @@
     import { centsToStr, parseAmountToCents, daysSince } from './core/ui.js';
     import {
       STATUS, TYPE, REFUND, makeItem, withStatus, computeSummary, reconciles, quickActions,
-      getViewGroup, isStoreCredit, creditDaysLeft, creditExpired, creditExpiringSoon
+      getViewGroup, isStoreCredit, creditDaysLeft, creditExpired, creditExpiringSoon,
+      expectDaysLeft, isOverdue, isDueSoon, countOverdue
     } from './features/items/model.js';
     import { buildEnvelope, validateEnvelope, blobToDataURL, dataURLToBlob } from './core/backup.js';
+    import { buildICS, icsEscape } from './features/items/calendar.js';
 
     const results = document.getElementById('results');
     let pass = 0, fail = 0;
@@ -126,6 +128,36 @@
     check('past credit detected as expired', creditExpired(expPast, at));
     const noExp = makeItem({ payee: 'S', amount: 100 });
     eq('no expiry → null days', creditDaysLeft(noExp, at), null);
+
+    // ---- expected-back / overdue ----
+    const dueNow = new Date('2026-06-10T12:00:00');
+    const future = makeItem({ payee: 'F', amount: 100, status: STATUS.PENDING, expectBy: '2026-06-20' });
+    const soon = makeItem({ payee: 'S', amount: 100, status: STATUS.PENDING, expectBy: '2026-06-12' });
+    const past = makeItem({ payee: 'P', amount: 100, status: STATUS.PENDING, expectBy: '2026-06-01' });
+    const pastDone = makeItem({ payee: 'D', amount: 100, status: STATUS.RECEIVED, expectBy: '2026-06-01' });
+    const noDue = makeItem({ payee: 'N', amount: 100, status: STATUS.PENDING });
+    check('future expectBy → positive days', expectDaysLeft(future, dueNow) > 0);
+    check('past expectBy → negative days', expectDaysLeft(past, dueNow) < 0);
+    eq('no expectBy → null days', expectDaysLeft(noDue, dueNow), null);
+    check('outstanding + past date → overdue', isOverdue(past, dueNow));
+    check('received + past date → NOT overdue', !isOverdue(pastDone, dueNow));
+    check('no date → not overdue', !isOverdue(noDue, dueNow));
+    check('within 3 days → due soon', isDueSoon(soon, 3, dueNow));
+    check('far out → not due soon', !isDueSoon(future, 3, dueNow));
+    eq('countOverdue counts only outstanding past-due', countOverdue([future, soon, past, pastDone, noDue], dueNow), 1);
+
+    // ---- calendar (.ics) ----
+    eq('icsEscape escapes comma/semicolon', icsEscape('a, b; c'), 'a\\, b\\; c');
+    eq('icsEscape escapes newline', icsEscape('a\nb'), 'a\\nb');
+    eq('icsEscape escapes backslash', icsEscape('a\\b'), 'a\\\\b');
+    eq('buildICS returns null without a date', buildICS(noDue, { dtstamp: '2026-06-10T12:00:00.000Z' }), null);
+    const ics = buildICS(makeItem({ payee: 'Amazon, Inc', amount: 2499, type: TYPE.RETURN, expectBy: '2026-06-20' }), { dtstamp: '2026-06-10T12:00:00.000Z' });
+    check('ics has VCALENDAR + VEVENT', /BEGIN:VCALENDAR[\s\S]*BEGIN:VEVENT[\s\S]*END:VCALENDAR/.test(ics));
+    check('ics DTSTART is the date at 9am', ics.includes('DTSTART:20260620T090000'));
+    check('ics has a reminder alarm', ics.includes('BEGIN:VALARM') && ics.includes('TRIGGER:PT0S'));
+    check('ics summary has amount + payee (comma escaped)', ics.includes('SUMMARY:Refund follow-up: $24.99 from Amazon\\, Inc'));
+    check('ics uses CRLF line endings', ics.includes('\r\n'));
+    check('ics DTSTAMP stripped to basic UTC', ics.includes('DTSTAMP:20260610T120000Z'));
 
     const moved = withStatus(a, STATUS.RECEIVED);
     check('withStatus changes status', moved.status === STATUS.RECEIVED);

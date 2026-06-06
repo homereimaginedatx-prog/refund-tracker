@@ -54,6 +54,9 @@ export async function openItemForm({ item = null, onSaved } = {}) {
   // --- Date ---
   const dateInput = el('input', { type: 'date', class: 'input', value: item ? item.date : todayISODate() });
 
+  // --- Expect it back by (optional) — drives in-app nudges + "Add to Calendar" ---
+  const expectInput = el('input', { type: 'date', class: 'input', value: item && item.expectBy ? item.expectBy : '' });
+
   // --- Category (build-your-own pick list) ---
   const categorySelect = el('select', { class: 'input' });
   const newCatInput = el('input', { type: 'text', class: 'input', placeholder: 'Name your new category' });
@@ -168,6 +171,8 @@ export async function openItemForm({ item = null, onSaved } = {}) {
   form.appendChild(field('Who / where', payeeInput, payeeErr));
   form.appendChild(field('Amount', amountWrap(amountInput), amountErr));
   form.appendChild(field('Date', dateInput));
+  form.appendChild(field('Expect it back by (optional)', expectInput,
+    el('div', { class: 'field-hint', text: 'We’ll remind you in the app, and you can add it to your iPhone calendar.' })));
   form.appendChild(field('Category', categorySelect));
   form.appendChild(newCatWrap);
   form.appendChild(refRow);
@@ -210,7 +215,8 @@ export async function openItemForm({ item = null, onSaved } = {}) {
 
       const fields = {
         date: dateInput.value, payee: payeeInput.value, amount: cents, type: typeValue,
-        category, reference, purpose: noteInput.value, status: statusSelect.value, receiptRef,
+        category, reference, expectBy: expectInput.value || null,
+        purpose: noteInput.value, status: statusSelect.value, receiptRef,
         refundMethod: methodSelect.value || null,
         creditCode: methodSelect.value === REFUND.CREDIT ? creditCodeInput.value : null,
         creditExpires: methodSelect.value === REFUND.CREDIT ? (creditExpInput.value || null) : null,

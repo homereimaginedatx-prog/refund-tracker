@@ -170,6 +170,7 @@ h1, h2, h3 { margin: 0; }
 .input:focus { border-color: var(--brand-2); background: var(--surface); }
 .textarea { resize: vertical; min-height: 52px; }
 .field-err { color: #dc2626; font-size: 13px; margin-top: 5px; min-height: 0; }
+.field-hint { color: var(--text-dim); font-size: 12px; margin-top: 5px; line-height: 1.4; }
 
 .amount-wrap { position: relative; display: flex; align-items: center; }
 .amount-prefix { position: absolute; left: 14px; color: var(--text-dim); font-size: 16px; }
@@ -298,6 +299,16 @@ h1, h2, h3 { margin: 0; }
 .exp-ok { color: var(--text-dim); background: var(--surface-2); }
 .exp-soon { color: var(--warn); background: var(--warn-bg); }
 .exp-bad { color: var(--danger); background: var(--danger-bg); }
+
+/* Expected-back / follow-up badge on outstanding cards */
+.due-badge { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+.due-ok { color: var(--text-dim); background: var(--surface-2); }
+.due-soon { color: var(--warn); background: var(--warn-bg); }
+.due-over { color: var(--danger); background: var(--danger-bg); }
+
+/* Overdue flag inside the hero tile */
+.tile-flag { margin-top: 8px; font-size: 13px; font-weight: 700; color: #fff;
+  background: rgba(0,0,0,.18); display: inline-block; padding: 4px 10px; border-radius: 999px; }
 
 /* ---- Receive flow (money vs store credit) ---- */
 .receive-q { color: var(--text-dim); margin: 0 0 16px; }

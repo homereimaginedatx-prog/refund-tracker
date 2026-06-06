@@ -85,6 +85,19 @@ export function buildICS(item, { dtstamp, hour = 9 } = {}) {
   return lines.join('\r\n') + '\r\n';
 }
 
+/** True only for an app installed to the iPhone/iPad home screen (where blob downloads
+    open a dead blank page, so we must not attempt them). */
+function isStandaloneIOS() {
+  try {
+    const standalone = window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    const ua = navigator.userAgent || '';
+    const iOS = /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return !!standalone && iOS;
+  } catch { return false; }
+}
+
 /** A safe-ish file name for the download fallback. */
 function fileName(item) {
   const who = (item.payee || 'refund').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'refund';
@@ -119,10 +132,14 @@ export async function addToCalendar(item, { dtstamp } = {}) {
     }
   } catch (err) {
     if (err && err.name === 'AbortError') return { ok: false, reason: 'cancelled' };
-    /* fall through to download */
+    /* fall through */
   }
 
-  // Fallback (desktop / no file-share): download the .ics → opens the OS calendar importer.
+  // On an INSTALLED iPhone/iPad app, a blob download just opens a dead blank page — so we
+  // refuse to do that and report cleanly instead. (The in-app reminders still cover her.)
+  if (isStandaloneIOS()) return { ok: false, reason: 'unsupported' };
+
+  // Fallback (desktop / regular browser): download the .ics → opens the OS calendar importer.
   try {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

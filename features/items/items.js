@@ -91,6 +91,7 @@ async function addItemToCalendar(item) {
     else if (r.ok && r.reason === 'downloaded') toast('Saved the calendar file — tap it to add the reminder.', { duration: 6000 });
     else if (r.reason === 'cancelled') { /* she backed out — no message */ }
     else if (r.reason === 'no-date') toast('Add an “expect it back by” date first — tap Edit.');
+    else if (r.reason === 'unsupported') toast('Calendar isn’t available from the app here — your in-app reminders still have you covered.', { duration: 7000 });
     else toast('Could not create the calendar reminder.');
   } catch (err) {
     toast(err.message || 'Could not create the calendar reminder.');

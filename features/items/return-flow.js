@@ -28,6 +28,7 @@ export function openReturnFlow(item, onResolved) {
       const r = await addToCalendar({ ...item, expectBy: expectInput.value }, { dtstamp: nowISO() });
       if (r.ok && (r.reason === 'shared' || r.reason === 'opened')) toast('In the sheet, tap “Add to Calendar” (or Save to Files, then open it).', { duration: 7000 });
       else if (r.ok && r.reason === 'downloaded') toast('Saved the calendar file — tap it to add the reminder.', { duration: 6000 });
+      else if (r.reason === 'unsupported') toast('Calendar isn’t available from the app here — your in-app reminders still have you covered.', { duration: 7000 });
       else if (r.reason !== 'cancelled') toast('Could not create the reminder.');
     } catch (e) { toast(e.message || 'Could not create the reminder.'); }
   }

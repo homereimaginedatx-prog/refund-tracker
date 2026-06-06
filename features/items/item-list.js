@@ -62,6 +62,12 @@ function metaLine(item) {
       onClick: () => openReceiptViewer(item.receiptRef)
     }));
   }
+  if (item.trackingRef) {
+    meta.appendChild(el('button', {
+      class: 'receipt-chip', text: '📦 View tracking', title: 'View drop-off / tracking photo',
+      onClick: () => openReceiptViewer(item.trackingRef)
+    }));
+  }
   return meta;
 }
 
@@ -84,8 +90,19 @@ function renderCard(item, handlers) {
     el('button', { class: 'link-btn danger', text: 'Cancel', onClick: () => handlers.onQuick && handlers.onQuick(item, STATUS.CANCELLED) })
   ]);
 
+  // To-do items get a prominent one-tap "Return started" CTA — the seamless in-field action.
+  const cta = item.status === STATUS.NA
+    ? el('div', { class: 'card-cta' }, [
+        el('button', {
+          class: 'btn btn-primary btn-block', text: '📦  Return started',
+          onClick: () => handlers.onQuick && handlers.onQuick(item, STATUS.PENDING)
+        })
+      ])
+    : null;
+
   return el('div', { class: 'card' }, [
     el('div', { class: 'card-body' }, [left, right]),
+    cta,
     renderStepper(item, handlers),
     foot
   ]);

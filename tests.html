@@ -107,6 +107,13 @@
     const reCard = withStatus(withCard, STATUS.PENDING);
     eq('card survives status change', reCard.card, 'Chase Sapphire');
 
+    // drop-off / tracking photo ref (separate from purchase receipt)
+    const withTrack = makeItem({ payee: 'Z', amount: 100, receiptRef: 'rcpt-1', trackingRef: 'trk-1' });
+    eq('makeItem keeps trackingRef', withTrack.trackingRef, 'trk-1');
+    eq('purchase + tracking refs are independent', withTrack.receiptRef, 'rcpt-1');
+    eq('trackingRef defaults null', makeItem({ payee: 'Z2', amount: 100 }).trackingRef, null);
+    eq('trackingRef survives status change', withStatus(withTrack, STATUS.PENDING).trackingRef, 'trk-1');
+
     // ---- store credit ----
     const cashItem = makeItem({ payee: 'Cash', amount: 1000, status: STATUS.RECEIVED, refundMethod: REFUND.CASH });
     eq('cash received → received group', getViewGroup(cashItem), 'received');

@@ -12,6 +12,7 @@ import { renderDashboard } from './dashboard.js';
 import { renderList } from './item-list.js';
 import { openItemForm } from './item-form.js';
 import { openReceiveFlow } from './receive-flow.js';
+import { openReturnFlow } from './return-flow.js';
 import { addToCalendar } from './calendar.js';
 
 const state = { container: null, items: [] };
@@ -63,6 +64,11 @@ function openAdd() { openItemForm({ onSaved: refresh }); }
 function openEdit(item) { openItemForm({ item, onSaved: refresh }); }
 
 async function quickStatus(item, toStatus) {
+  // Starting a return (To do → Waiting) opens the quick in-field capture flow.
+  if (item.status === STATUS.NA && toStatus === STATUS.PENDING) {
+    openReturnFlow(item, refresh);
+    return;
+  }
   // Marking Received opens the "how did you get it back?" flow (money vs store credit).
   if (toStatus === STATUS.RECEIVED) {
     openReceiveFlow(item, refresh);

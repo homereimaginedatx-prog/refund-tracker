@@ -285,6 +285,14 @@ h1, h2, h3 { margin: 0; }
 .step-arrow { color: var(--text-dim); font-size: 13px; }
 .cancelled-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 
+/* ---- "Return started" CTA on To-do cards ---- */
+.card-cta { margin-top: 12px; }
+.btn-block { width: 100%; }
+
+/* ---- Return-started flow sheet ---- */
+.return-sub { color: var(--text-dim); font-size: 14px; margin: -4px 0 10px; }
+.return-cal { margin-top: 4px; }
+
 /* ---- Card footer links ---- */
 .card-foot { display: flex; gap: 18px; margin-top: 12px; }
 .link-btn { background: none; border: none; color: var(--text-dim); font-size: 13px; text-decoration: underline; padding: 4px 0; }

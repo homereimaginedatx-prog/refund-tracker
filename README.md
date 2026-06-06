@@ -110,8 +110,10 @@ features/items/           v1 feature: the refund/reimbursement tracker
   categories.js           user-defined category list (add/rename-flows-through/remove)
   cards.js                user-defined card list (which card the refund hits; rename flows through)
   receive-flow.js         "money back vs store credit" chooser on Received
+  return-flow.js          fast in-field "Return started" sheet (To do → Waiting at the counter)
   calendar.js             one-way .ics export (TESTABLE buildICS) + iOS "Add to Calendar"
   receipt-view.js         full-size receipt photo viewer (tap "View receipt" / the thumbnail)
+  receipt-slot.js         shared photo capture/preview/persist control (purchase + tracking)
 
 tests.html                zero-dep self tests for the pure logic
 ```
@@ -141,6 +143,19 @@ sync would require either a **server** talking to iCloud over CalDAV (a paid, ac
 service) or a **native App Store app** ($99/yr + review) — both of which break this project's
 free / no-server / no-account guarantees. So the app stays the source of truth; the calendar
 entry is a convenience copy. If a date changes, change it in the app and re-tap Add to Calendar.
+
+### Two moments: planning vs. the counter
+The app is built around the two different moments a return actually happens in:
+- **At home (planning):** the full Add/Edit form — name, amount, order #, purchase receipt,
+  category, card, expected-back date. Items land in **To do**.
+- **At the counter (executing):** each To-do item has a big **📦 Return started** button.
+  It opens a minimal sheet — snap the tracking/drop-off photo, confirm the expected-back
+  date (pre-filled from home), optionally **Add to Calendar**, **Save & next**. Save moves
+  the item To do → Waiting and drops it off the To-do list, so the next one is right there.
+  Tapping the stepper's "Waiting" goes through the same sheet, so there's one path.
+
+Each item holds **two photos**: the **purchase receipt** (added at home) and the **drop-off /
+tracking** photo (added at the counter), both viewable from the item.
 
 ### Adding a future building block
 Drop a folder under `features/`, and call `registerFeature({ id, label, icon, mount })`.

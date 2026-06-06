@@ -155,6 +155,8 @@ export function makeItem(fields) {
     purpose: fields.purpose ? fields.purpose.trim() : null,
     reference: fields.reference ? fields.reference.trim() : null,
     receiptRef: fields.receiptRef || null,
+    trackingRef: fields.trackingRef || null,   // drop-off / tracking-label photo
+
     refundMethod: fields.refundMethod || null,
     creditCode: fields.creditCode ? fields.creditCode.trim() : null,
     creditExpires: fields.creditExpires || null,
@@ -181,6 +183,7 @@ export function applyEdits(existing, fields) {
     purpose: fields.purpose ? fields.purpose.trim() : null,
     reference: fields.reference !== undefined ? (fields.reference ? fields.reference.trim() : null) : existing.reference,
     receiptRef: fields.receiptRef !== undefined ? fields.receiptRef : existing.receiptRef,
+    trackingRef: fields.trackingRef !== undefined ? fields.trackingRef : existing.trackingRef,
     refundMethod: fields.refundMethod !== undefined ? fields.refundMethod : existing.refundMethod,
     creditCode: fields.creditCode !== undefined ? (fields.creditCode ? fields.creditCode.trim() : null) : existing.creditCode,
     creditExpires: fields.creditExpires !== undefined ? (fields.creditExpires || null) : existing.creditExpires,

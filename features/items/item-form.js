@@ -7,14 +7,13 @@
      success only after the DB write actually committed. */
 
 import {
-  el, clear, parseAmountToCents, centsToStr, todayISODate, toast, nowISO, uid
+  el, clear, parseAmountToCents, centsToStr, todayISODate, toast, nowISO
 } from '../../core/ui.js';
 import { openOverlay } from '../../core/overlay.js';
-import { compressImage } from '../../core/images.js';
-import { putItem, putReceipt, getReceipt, getMerchant, putMerchant } from '../../core/db.js';
+import { putItem, getMerchant, putMerchant } from '../../core/db.js';
 import { getCategories, addCategory } from './categories.js';
 import { getCards, addCard } from './cards.js';
-import { openImageOverlay } from './receipt-view.js';
+import { makeReceiptSlot } from './receipt-slot.js';
 import {
   STATUS, TYPE, REFUND, statusLabel, makeItem, applyEdits, validateFields
 } from './model.js';
@@ -31,10 +30,15 @@ export async function openItemForm({ item = null, onSaved } = {}) {
   const cards = await getCards();
   if (item && item.card && !cards.includes(item.card)) cards.push(item.card);
 
-  // Receipt working state (kept until Save).
-  let pendingReceipt = null;
-  let receiptRef = item ? item.receiptRef : null;
-  let previewURL = null;
+  // Two photo slots, sharing one capture/preview/view code path (receipt-slot.js).
+  const purchaseSlot = makeReceiptSlot({
+    initialRef: item ? item.receiptRef : null,
+    addText: '📷  Add receipt photo', replaceText: '📷  Replace receipt photo', editing
+  });
+  const trackingSlot = makeReceiptSlot({
+    initialRef: item ? item.trackingRef : null,
+    addText: '📦  Add drop-off / tracking photo', replaceText: '📦  Replace drop-off photo', editing
+  });
 
   const form = el('div', { class: 'form' });
 
@@ -145,52 +149,6 @@ export async function openItemForm({ item = null, onSaved } = {}) {
   ]);
   methodSelect.addEventListener('change', () => creditBox.classList.toggle('hidden', methodSelect.value !== REFUND.CREDIT));
 
-  // --- Receipt ---
-  const fileInput = el('input', { type: 'file', accept: 'image/*', class: 'hidden-file' });
-  const thumb = el('div', { class: 'receipt-thumb' });
-  const addReceiptBtn = el('button', { type: 'button', class: 'btn btn-ghost', text: '📷  Add receipt photo', onClick: () => fileInput.click() });
-  const receiptArea = el('div', { class: 'receipt-area' }, [addReceiptBtn, thumb, fileInput]);
-
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files && fileInput.files[0];
-    if (!file) return;
-    addReceiptBtn.disabled = true; addReceiptBtn.textContent = 'Processing…';
-    try {
-      pendingReceipt = await compressImage(file);
-      receiptRef = receiptRef || uid();
-      showThumb(URL.createObjectURL(pendingReceipt.blob));
-    } catch (err) {
-      toast(err.message || 'Could not add that photo.');
-    } finally {
-      addReceiptBtn.disabled = false; addReceiptBtn.textContent = '📷  Replace receipt photo'; fileInput.value = '';
-    }
-  });
-
-  function showThumb(url) {
-    if (previewURL) URL.revokeObjectURL(previewURL);
-    previewURL = url;
-    clear(thumb);
-    const img = el('img', { src: url, alt: 'receipt preview', title: 'Tap to view full size' });
-    img.addEventListener('click', () => openImageOverlay(url)); // form owns the URL; don't revoke here
-    thumb.appendChild(img);
-    thumb.appendChild(el('div', { class: 'thumb-hint', text: 'Tap the photo to view it full size' }));
-    thumb.appendChild(el('button', {
-      type: 'button', class: 'btn btn-small btn-ghost', text: 'Remove',
-      onClick: () => {
-        pendingReceipt = null; receiptRef = null;
-        if (previewURL) { URL.revokeObjectURL(previewURL); previewURL = null; }
-        clear(thumb);
-        addReceiptBtn.textContent = '📷  Add receipt photo';
-      }
-    }));
-  }
-
-  if (editing && receiptRef) {
-    getReceipt(receiptRef).then((r) => {
-      if (r && r.blob) { showThumb(URL.createObjectURL(r.blob)); addReceiptBtn.textContent = '📷  Replace receipt photo'; }
-    }).catch(() => {});
-  }
-
   // --- Assemble ---
   form.appendChild(el('h2', { class: 'sheet-title', text: editing ? 'Edit item' : 'Add item' }));
   form.appendChild(field('Type', el('div', { class: 'segmented' }, [typeReturn, typeReimb])));
@@ -210,14 +168,16 @@ export async function openItemForm({ item = null, onSaved } = {}) {
   form.appendChild(field('Status', statusSelect));
   form.appendChild(field('How you got it back', methodSelect));
   form.appendChild(creditBox);
-  form.appendChild(field('Receipt', receiptArea));
+  form.appendChild(field('Purchase receipt', purchaseSlot.node));
+  form.appendChild(field('Drop-off / tracking photo', trackingSlot.node,
+    el('div', { class: 'field-hint', text: 'Proof you shipped it back — usually added at the counter via “Return started”.' })));
 
   const saveBtn = el('button', { class: 'btn btn-primary', text: editing ? 'Save changes' : 'Add item' });
   const cancelBtn = el('button', { class: 'btn btn-ghost', text: 'Cancel', onClick: () => overlay.close() });
   form.appendChild(el('div', { class: 'sheet-footer' }, [cancelBtn, saveBtn]));
 
   syncTypeUI();
-  const overlay = openOverlay(form, { onClose: () => { if (previewURL) URL.revokeObjectURL(previewURL); } });
+  const overlay = openOverlay(form, { onClose: () => { purchaseSlot.cleanup(); trackingSlot.cleanup(); } });
 
   saveBtn.addEventListener('click', async () => {
     payeeErr.textContent = ''; amountErr.textContent = '';
@@ -248,19 +208,19 @@ export async function openItemForm({ item = null, onSaved } = {}) {
       if (category) await addCategory(category); // persist user's taxonomy
       if (card) await addCard(card);             // persist user's card list
 
+      // Commit any newly-picked photos first; get back their refs.
+      const receiptRef = await purchaseSlot.persist();
+      const trackingRef = await trackingSlot.persist();
+
       const fields = {
         date: dateInput.value, payee: payeeInput.value, amount: cents, type: typeValue,
         category, card, reference, expectBy: expectInput.value || null,
-        purpose: noteInput.value, status: statusSelect.value, receiptRef,
+        purpose: noteInput.value, status: statusSelect.value, receiptRef, trackingRef,
         refundMethod: methodSelect.value || null,
         creditCode: methodSelect.value === REFUND.CREDIT ? creditCodeInput.value : null,
         creditExpires: methodSelect.value === REFUND.CREDIT ? (creditExpInput.value || null) : null,
         creditUsed: methodSelect.value === REFUND.CREDIT ? creditUsedInput.checked : false
       };
-
-      if (pendingReceipt) {
-        await putReceipt({ id: receiptRef, blob: pendingReceipt.blob, width: pendingReceipt.width, height: pendingReceipt.height, createdAt: nowISO() });
-      }
 
       const record = editing ? applyEdits(item, fields) : makeItem(fields);
       await putItem(record);

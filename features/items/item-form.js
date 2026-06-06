@@ -13,18 +13,23 @@ import { openOverlay } from '../../core/overlay.js';
 import { compressImage } from '../../core/images.js';
 import { putItem, putReceipt, getReceipt, getMerchant, putMerchant } from '../../core/db.js';
 import { getCategories, addCategory } from './categories.js';
+import { getCards, addCard } from './cards.js';
+import { openImageOverlay } from './receipt-view.js';
 import {
   STATUS, TYPE, REFUND, statusLabel, makeItem, applyEdits, validateFields
 } from './model.js';
 
 const STATUS_CHOICES = [STATUS.NA, STATUS.PENDING, STATUS.RECEIVED, STATUS.CANCELLED];
 const NEW_CATEGORY = '__new__';
+const NEW_CARD = '__newcard__';
 
 export async function openItemForm({ item = null, onSaved } = {}) {
   const editing = !!item;
   const categories = await getCategories();
   // Show a legacy/edited category even if it isn't in the saved list yet.
   if (item && item.category && !categories.includes(item.category)) categories.push(item.category);
+  const cards = await getCards();
+  if (item && item.card && !cards.includes(item.card)) cards.push(item.card);
 
   // Receipt working state (kept until Save).
   let pendingReceipt = null;
@@ -85,6 +90,24 @@ export async function openItemForm({ item = null, onSaved } = {}) {
       rebuildCategoryOptions(m.lastCategory);
     }
   }
+
+  // --- Card it's coming back to (build-your-own, same pattern as category) ---
+  const cardSelect = el('select', { class: 'input' });
+  const newCardInput = el('input', { type: 'text', class: 'input', placeholder: 'Name your card (e.g. Chase Sapphire)' });
+  const newCardWrap = el('div', { class: 'sub-field hidden' }, [newCardInput]);
+  function rebuildCardOptions(selected) {
+    clear(cardSelect);
+    cardSelect.appendChild(el('option', { value: '', text: '(none)' }));
+    for (const c of cards) cardSelect.appendChild(el('option', { value: c, text: c }));
+    cardSelect.appendChild(el('option', { value: NEW_CARD, text: '➕ New card…' }));
+    cardSelect.value = selected != null ? selected : '';
+  }
+  cardSelect.addEventListener('change', () => {
+    const isNew = cardSelect.value === NEW_CARD;
+    newCardWrap.classList.toggle('hidden', !isNew);
+    if (isNew) newCardInput.focus();
+  });
+  rebuildCardOptions(item && item.card ? item.card : '');
 
   // --- Reference # (optional, off by default) ---
   const refToggle = el('input', { type: 'checkbox' });
@@ -147,7 +170,10 @@ export async function openItemForm({ item = null, onSaved } = {}) {
     if (previewURL) URL.revokeObjectURL(previewURL);
     previewURL = url;
     clear(thumb);
-    thumb.appendChild(el('img', { src: url, alt: 'receipt preview' }));
+    const img = el('img', { src: url, alt: 'receipt preview', title: 'Tap to view full size' });
+    img.addEventListener('click', () => openImageOverlay(url)); // form owns the URL; don't revoke here
+    thumb.appendChild(img);
+    thumb.appendChild(el('div', { class: 'thumb-hint', text: 'Tap the photo to view it full size' }));
     thumb.appendChild(el('button', {
       type: 'button', class: 'btn btn-small btn-ghost', text: 'Remove',
       onClick: () => {
@@ -175,6 +201,9 @@ export async function openItemForm({ item = null, onSaved } = {}) {
     el('div', { class: 'field-hint', text: 'We’ll remind you in the app, and you can add it to your iPhone calendar.' })));
   form.appendChild(field('Category', categorySelect));
   form.appendChild(newCatWrap);
+  form.appendChild(field('Card it’s coming back to', cardSelect,
+    el('div', { class: 'field-hint', text: 'So you know which card to check when the refund posts.' })));
+  form.appendChild(newCardWrap);
   form.appendChild(refRow);
   form.appendChild(refWrap);
   form.appendChild(field('Note', noteInput));
@@ -207,15 +236,21 @@ export async function openItemForm({ item = null, onSaved } = {}) {
     if (categorySelect.value === NEW_CATEGORY) category = newCatInput.value.trim() || null;
     else if (categorySelect.value) category = categorySelect.value;
 
+    // resolve card (existing pick, brand-new, or none)
+    let card = null;
+    if (cardSelect.value === NEW_CARD) card = newCardInput.value.trim() || null;
+    else if (cardSelect.value) card = cardSelect.value;
+
     const reference = refToggle.checked && refInput.value.trim() ? refInput.value.trim() : null;
 
     saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
     try {
       if (category) await addCategory(category); // persist user's taxonomy
+      if (card) await addCard(card);             // persist user's card list
 
       const fields = {
         date: dateInput.value, payee: payeeInput.value, amount: cents, type: typeValue,
-        category, reference, expectBy: expectInput.value || null,
+        category, card, reference, expectBy: expectInput.value || null,
         purpose: noteInput.value, status: statusSelect.value, receiptRef,
         refundMethod: methodSelect.value || null,
         creditCode: methodSelect.value === REFUND.CREDIT ? creditCodeInput.value : null,

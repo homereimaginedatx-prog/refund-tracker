@@ -8,6 +8,7 @@ import {
   creditDaysLeft, creditExpired, creditExpiringSoon,
   expectDaysLeft, isOverdue, isDueSoon
 } from './model.js';
+import { openReceiptViewer } from './receipt-view.js';
 
 const STEPS = [
   { status: STATUS.NA, label: 'To do' },
@@ -52,9 +53,15 @@ export function renderList(items, handlers = {}) {
 function metaLine(item) {
   const parts = [formatDate(item.date), typeLabel(item.type)];
   if (item.category) parts.push(item.category);
+  if (item.card) parts.push('💳 ' + item.card);
   if (item.reference) parts.push('#' + item.reference);
   const meta = el('div', { class: 'card-meta', text: parts.join(' · ') });
-  if (item.receiptRef) meta.appendChild(el('span', { class: 'receipt-chip', text: ' 📎 receipt' }));
+  if (item.receiptRef) {
+    meta.appendChild(el('button', {
+      class: 'receipt-chip', text: '📎 View receipt', title: 'View receipt photo',
+      onClick: () => openReceiptViewer(item.receiptRef)
+    }));
+  }
   return meta;
 }
 

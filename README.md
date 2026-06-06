@@ -108,8 +108,10 @@ features/items/           v1 feature: the refund/reimbursement tracker
   item-list.js            grouped register + status stepper + store-credit cards
   item-form.js            add/edit + camera capture + category/reference/credit fields
   categories.js           user-defined category list (add/rename-flows-through/remove)
+  cards.js                user-defined card list (which card the refund hits; rename flows through)
   receive-flow.js         "money back vs store credit" chooser on Received
   calendar.js             one-way .ics export (TESTABLE buildICS) + iOS "Add to Calendar"
+  receipt-view.js         full-size receipt photo viewer (tap "View receipt" / the thumbnail)
 
 tests.html                zero-dep self tests for the pure logic
 ```

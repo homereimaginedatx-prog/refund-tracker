@@ -6,6 +6,7 @@ import { openOverlay } from './overlay.js';
 import { exportBackup, importBackupFromFile } from './backup.js';
 import { getMeta, clearData } from './db.js';
 import { getCategories, addCategory, removeCategory, renameCategory } from '../features/items/categories.js';
+import { getCards, addCard, removeCard, renameCard } from '../features/items/cards.js';
 
 export async function openSettings() {
   const body = el('div', { class: 'form settings' });
@@ -102,6 +103,43 @@ export async function openSettings() {
     await addCategory(n); newCat.value = ''; await renderCats();
   });
   await renderCats();
+
+  // --- Cards manager (same pattern as categories; renames flow through to items) ---
+  const cardSection = el('div', { class: 'settings-section' });
+  cardSection.appendChild(el('h3', { class: 'settings-h3', text: 'Cards' }));
+  const cardList = el('div', { class: 'cat-list' });
+  const newCard = el('input', { type: 'text', class: 'input', placeholder: 'Add a card (e.g. Chase Sapphire)' });
+  const addCardBtn = el('button', { class: 'btn btn-ghost', text: 'Add' });
+  cardSection.appendChild(cardList);
+  cardSection.appendChild(el('div', { class: 'cat-add' }, [newCard, addCardBtn]));
+  body.appendChild(cardSection);
+
+  async function renderCards() {
+    const cards = await getCards();
+    clear(cardList);
+    if (!cards.length) {
+      cardList.appendChild(el('div', { class: 'cat-empty', text: 'No cards yet — add them here, or create one while adding an item.' }));
+      return;
+    }
+    for (const c of cards) {
+      cardList.appendChild(el('div', { class: 'cat-chip' }, [
+        el('button', {
+          class: 'cat-name', text: c, title: 'Rename (updates all items)',
+          onClick: async () => {
+            const nn = prompt(`Rename "${c}" to:  (this updates every item using it)`, c);
+            if (nn && nn.trim() && nn.trim() !== c) { await renameCard(c, nn.trim()); await renderCards(); toast('Card renamed everywhere.'); }
+          }
+        }),
+        el('button', { class: 'cat-x', text: '✕', 'aria-label': 'Remove ' + c, onClick: async () => { await removeCard(c); await renderCards(); } })
+      ]));
+    }
+  }
+  addCardBtn.addEventListener('click', async () => {
+    const n = newCard.value.trim();
+    if (!n) return;
+    await addCard(n); newCard.value = ''; await renderCards();
+  });
+  await renderCards();
 
   const closeBtn = el('button', { class: 'btn btn-ghost', text: 'Close', onClick: () => ov.close() });
   body.appendChild(el('div', { class: 'sheet-footer' }, [closeBtn]));

@@ -150,6 +150,7 @@ export function makeItem(fields) {
     amount: fields.amount | 0,            // integer cents
     type: fields.type || TYPE.RETURN,
     category: fields.category ? fields.category.trim() : null,
+    card: fields.card ? fields.card.trim() : null,   // which card the refund hits (user-named)
     expectBy: fields.expectBy || null,   // optional "expect it back by" date
     purpose: fields.purpose ? fields.purpose.trim() : null,
     reference: fields.reference ? fields.reference.trim() : null,
@@ -175,6 +176,7 @@ export function applyEdits(existing, fields) {
     amount: fields.amount | 0,
     type: fields.type || existing.type,
     category: fields.category ? fields.category.trim() : null,
+    card: fields.card !== undefined ? (fields.card ? fields.card.trim() : null) : existing.card,
     expectBy: fields.expectBy !== undefined ? (fields.expectBy || null) : existing.expectBy,
     purpose: fields.purpose ? fields.purpose.trim() : null,
     reference: fields.reference !== undefined ? (fields.reference ? fields.reference.trim() : null) : existing.reference,

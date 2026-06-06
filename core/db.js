@@ -195,6 +195,18 @@ export async function remapCategory(oldName, newName) {
   });
 }
 
+/** Rename a card across ALL items in ONE transaction (same flow-through as categories:
+    change the name once and every item using it updates). Atomic — all or nothing. */
+export async function remapCard(oldName, newName) {
+  return withTx(STORES.items, 'readwrite', async (s) => {
+    const items = await reqDone(s[STORES.items].getAll());
+    for (const it of items) {
+      if (it.card === oldName) { it.card = newName; await reqDone(s[STORES.items].put(it)); }
+    }
+    return true;
+  });
+}
+
 /** Wipe items, receipts, and merchant memory — but KEEP meta (categories, schemaVersion,
     lastBackupAt). Used by the "Clear all data" action. Atomic. */
 export async function clearData() {

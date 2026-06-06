@@ -100,6 +100,13 @@
     const noRef = makeItem({ payee: 'X', amount: 100 });
     eq('makeItem reference defaults null', noRef.reference, null);
 
+    // optional card field round-trips + defaults null
+    const withCard = makeItem({ payee: 'Target', amount: 100, card: 'Chase Sapphire' });
+    eq('makeItem keeps card', withCard.card, 'Chase Sapphire');
+    eq('makeItem card defaults null', makeItem({ payee: 'Y', amount: 100 }).card, null);
+    const reCard = withStatus(withCard, STATUS.PENDING);
+    eq('card survives status change', reCard.card, 'Chase Sapphire');
+
     // ---- store credit ----
     const cashItem = makeItem({ payee: 'Cash', amount: 1000, status: STATUS.RECEIVED, refundMethod: REFUND.CASH });
     eq('cash received → received group', getViewGroup(cashItem), 'received');

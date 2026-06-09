@@ -4,7 +4,7 @@
 
 import { el, centsToStr, formatDate, agingLabel, toast } from '../../core/ui.js';
 import {
-  STATUS, VIEW_ORDER, getViewGroup, viewGroupLabel, isOutstanding, typeLabel,
+  STATUS, TYPE, VIEW_ORDER, getViewGroup, viewGroupLabel, isOutstanding, typeLabel,
   creditDaysLeft, creditExpired, creditExpiringSoon,
   expectDaysLeft, isOverdue, isDueSoon
 } from './model.js';
@@ -63,8 +63,11 @@ function metaLine(item) {
     }));
   }
   if (item.trackingRef) {
+    const reimb = item.type === TYPE.REIMBURSEMENT;
     meta.appendChild(el('button', {
-      class: 'receipt-chip', text: '📦 View tracking', title: 'View drop-off / tracking photo',
+      class: 'receipt-chip',
+      text: reimb ? '📄 View submission' : '📦 View tracking',
+      title: reimb ? 'View the receipt/claim you submitted' : 'View drop-off / tracking photo',
       onClick: () => openReceiptViewer(item.trackingRef)
     }));
   }
@@ -90,11 +93,13 @@ function renderCard(item, handlers) {
     el('button', { class: 'link-btn danger', text: 'Cancel', onClick: () => handlers.onQuick && handlers.onQuick(item, STATUS.CANCELLED) })
   ]);
 
-  // To-do items get a prominent one-tap "Return started" CTA — the seamless in-field action.
+  // To-do items get a prominent one-tap CTA — the seamless in-field action, phrased to type:
+  // a return is "Return started" (ship it back); a reimbursement is "Mark submitted" (file the claim).
   const cta = item.status === STATUS.NA
     ? el('div', { class: 'card-cta' }, [
         el('button', {
-          class: 'btn btn-primary btn-block', text: '📦  Return started',
+          class: 'btn btn-primary btn-block',
+          text: item.type === TYPE.REIMBURSEMENT ? '📤  Mark submitted' : '📦  Return started',
           onClick: () => handlers.onQuick && handlers.onQuick(item, STATUS.PENDING)
         })
       ])

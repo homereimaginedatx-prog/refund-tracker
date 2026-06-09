@@ -10,12 +10,25 @@ import { openOverlay } from '../../core/overlay.js';
 import { putItem } from '../../core/db.js';
 import { makeReceiptSlot } from './receipt-slot.js';
 import { addToCalendar } from './calendar.js';
-import { STATUS, withStatus } from './model.js';
+import { STATUS, TYPE, withStatus } from './model.js';
 
 export function openReturnFlow(item, onResolved) {
+  const reimb = item.type === TYPE.REIMBURSEMENT;
+  const t = reimb ? {
+    title: '📤 Submitted for reimbursement',
+    photoLabel: 'Receipt / claim photo',
+    photoAdd: '📷  Snap the receipt you submitted',
+    saved: 'Marked as submitted — now waiting on the reimbursement.'
+  } : {
+    title: '📦 Return started',
+    photoLabel: 'Tracking / drop-off photo',
+    photoAdd: '📷  Snap the tracking label / receipt',
+    saved: 'Marked as returned — now waiting on the refund.'
+  };
+
   const slot = makeReceiptSlot({
     initialRef: item.trackingRef || null,
-    addText: '📷  Snap the tracking label / receipt',
+    addText: t.photoAdd,
     replaceText: '📷  Replace photo',
     editing: !!item.trackingRef
   });
@@ -38,9 +51,9 @@ export function openReturnFlow(item, onResolved) {
   const cancelBtn = el('button', { class: 'btn btn-ghost', text: 'Cancel', onClick: () => ov.close() });
 
   const body = el('div', { class: 'form return-flow' }, [
-    el('h2', { class: 'sheet-title', text: '📦 Return started' }),
+    el('h2', { class: 'sheet-title', text: t.title }),
     el('div', { class: 'return-sub', text: `${item.payee || '(no name)'} · ${centsToStr(item.amount)}${item.reference ? ' · #' + item.reference : ''}` }),
-    field('Tracking / drop-off photo', slot.node),
+    field(t.photoLabel, slot.node),
     field('Expected back by', expectInput),
     el('div', { class: 'return-cal' }, [calBtn]),
     el('div', { class: 'sheet-footer' }, [cancelBtn, saveBtn])
@@ -59,7 +72,7 @@ export function openReturnFlow(item, onResolved) {
       updated.trackingRef = trackingRef;
       await putItem(updated);
       ov.close();
-      toast('Marked as returned — now waiting on the refund.');
+      toast(t.saved);
       if (onResolved) await onResolved();
     } catch (e) {
       saveBtn.disabled = false; saveBtn.textContent = 'Save & next';

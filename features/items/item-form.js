@@ -169,8 +169,8 @@ export async function openItemForm({ item = null, onSaved } = {}) {
   form.appendChild(field('How you got it back', methodSelect));
   form.appendChild(creditBox);
   form.appendChild(field('Purchase receipt', purchaseSlot.node));
-  form.appendChild(field('Drop-off / tracking photo', trackingSlot.node,
-    el('div', { class: 'field-hint', text: 'Proof you shipped it back — usually added at the counter via “Return started”.' })));
+  form.appendChild(field('Drop-off / claim photo', trackingSlot.node,
+    el('div', { class: 'field-hint', text: 'Proof you returned or submitted it — usually added via the in-field button.' })));
 
   const saveBtn = el('button', { class: 'btn btn-primary', text: editing ? 'Save changes' : 'Add item' });
   const cancelBtn = el('button', { class: 'btn btn-ghost', text: 'Cancel', onClick: () => overlay.close() });

@@ -18,6 +18,8 @@ const PRECACHE = [
   './assets/styles.css',
   './version.js',
   './core/app.js',
+  './core/license.js',
+  './core/license-views.js',
   './manifest.webmanifest'
 ];
 

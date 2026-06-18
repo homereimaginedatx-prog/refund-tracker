@@ -78,7 +78,7 @@ export function renderLogin(root, onAllowed) {
       showStep2();
     } catch {
       sendBtn.disabled = false; sendBtn.textContent = 'Send code';
-      note.textContent = 'You need an internet connection to sign in the first time. Reconnect and try again — once you're in, the app works offline.';
+      note.textContent = 'You need an internet connection to sign in. Once you're in, the app works offline.';
     }
   }
 
@@ -122,6 +122,8 @@ export function renderLocked(root, onAllowed) {
   backupBtn.addEventListener('click', async () => {
     backupBtn.disabled = true; backupBtn.textContent = 'Preparing…';
     try {
+      // Runs before runMigrations() (the app shell never mounted). Exporting possibly
+      // stale-schema data is better than blocking the user's rescue export.
       const r = await exportBackup();
       toast(r.shared ? 'Backup ready — choose "Save to Files" → iCloud Drive.' : 'Backup downloaded.', { duration: 6000 });
     } catch (e) {
@@ -130,6 +132,8 @@ export function renderLocked(root, onAllowed) {
       backupBtn.disabled = false; backupBtn.textContent = 'Back up my data';
     }
   });
+  // "Try again" re-runs the gate. Offline with no cached-active verdict routes to the
+  // login screen (by the decideVerdict matrix) — intentional, not a retry failure.
   retryBtn.addEventListener('click', () => runGate(root, onAllowed));
   switchBtn.addEventListener('click', () => { clearToken(); renderLogin(root, onAllowed); });
 

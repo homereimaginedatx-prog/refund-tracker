@@ -5,8 +5,8 @@
    localStorage (a device credential — deliberately NOT in IndexedDB, so it never travels
    in a data backup). The user's refund data never passes through here. */
 
-export const BASE = 'https://license-server.homereimaginedatx.workers.dev';
-export const PRODUCT_ID = 'refund-tracker';
+const BASE = 'https://license-server.homereimaginedatx.workers.dev';
+const PRODUCT_ID = 'refund-tracker';
 
 // Master switch. While false, the gate is dormant and the app behaves exactly as before.
 // To enforce: set true, bump version.js, push. (Register users' emails on the server FIRST.)

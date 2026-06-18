@@ -13,6 +13,9 @@ import { mountShell } from './shell.js';
 import { el, clear, toast } from './ui.js';
 import '../features/items/items.js';
 
+import { ENFORCE } from './license.js';
+import { runGate, watchRevocation } from './license-views.js';
+
 const root = document.getElementById('app');
 
 boot();
@@ -22,11 +25,14 @@ async function boot() {
   registerServiceWorker();
   await requestPersistentStorage();
 
+  // Every path into the app funnels through proceed(), so the license gate (when enforced)
+  // can never be skipped — including the install gate's "Continue in Safari" escape.
+  const proceed = () => (ENFORCE ? runGate(root, startApp) : startApp());
   if (isIOS() && !isStandalone()) {
-    showInstallGate(startApp);
+    showInstallGate(proceed);
     return;
   }
-  startApp();
+  proceed();
 }
 
 async function startApp() {
@@ -34,6 +40,7 @@ async function startApp() {
     await runMigrations();
     await mountShell(root);
     startVersionWatch();
+    if (ENFORCE) watchRevocation();
   } catch (err) {
     fatal(err);
   }

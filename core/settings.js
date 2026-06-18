@@ -5,6 +5,7 @@ import { el, clear, toast, formatDate, daysSince } from './ui.js';
 import { openOverlay } from './overlay.js';
 import { exportBackup, importBackupFromFile } from './backup.js';
 import { getMeta, clearData } from './db.js';
+import { ENFORCE, getEmail, clearToken } from './license.js';
 import { getCategories, addCategory, removeCategory, renameCategory } from '../features/items/categories.js';
 import { getCards, addCard, removeCard, renameCard } from '../features/items/cards.js';
 
@@ -13,6 +14,20 @@ export async function openSettings() {
   body.appendChild(el('h2', { class: 'sheet-title', text: 'Settings' }));
 
   body.appendChild(infoRow('App version', String(globalThis.APP_VERSION || 'dev')));
+
+  if (ENFORCE) {
+    body.appendChild(infoRow('Account', getEmail() || 'signed in'));
+    const signOutBtn = el('button', {
+      class: 'btn btn-ghost', text: 'Sign out',
+      onClick: () => {
+        if (confirm('Sign out? You\'ll need your email and a new code to get back in.')) {
+          clearToken();
+          location.reload();
+        }
+      }
+    });
+    body.appendChild(el('div', { class: 'settings-actions' }, [signOutBtn]));
+  }
 
   const last = await getMeta('lastBackupAt', null);
   const lastRow = infoRow('Last backup', last ? `${formatDate(last)} · ${daysSince(last)}d ago` : 'never');

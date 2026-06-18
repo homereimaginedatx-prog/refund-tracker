@@ -78,7 +78,7 @@ export function renderLogin(root, onAllowed) {
       showStep2();
     } catch {
       sendBtn.disabled = false; sendBtn.textContent = 'Send code';
-      note.textContent = 'You need an internet connection to sign in. Once you're in, the app works offline.';
+      note.textContent = 'You need an internet connection to sign in. Once you\'re in, the app works offline.';
     }
   }
 
@@ -94,10 +94,10 @@ export function renderLogin(root, onAllowed) {
         return onAllowed();
       }
       verifyBtn.disabled = false; verifyBtn.textContent = 'Verify & enter';
-      note.textContent = 'That code didn't work. Check it and try again, or resend a new one.';
+      note.textContent = 'That code didn\'t work. Check it and try again, or resend a new one.';
     } catch {
       verifyBtn.disabled = false; verifyBtn.textContent = 'Verify & enter';
-      note.textContent = 'Couldn't reach the server. Check your connection and try again.';
+      note.textContent = 'Couldn\'t reach the server. Check your connection and try again.';
     }
   }
 
@@ -106,7 +106,7 @@ export function renderLogin(root, onAllowed) {
   backBtn.addEventListener('click', () => renderLogin(root, onAllowed));
 
   root.appendChild(gateCard('🔑', 'Sign in', [
-    el('p', { class: 'install-lead', text: 'Enter your email and we'll send you a 6-digit code.' }),
+    el('p', { class: 'install-lead', text: 'Enter your email and we\'ll send you a 6-digit code.' }),
     el('div', { class: 'gate-actions' }, [emailInput, sendBtn]),
     step2,
     note
@@ -138,7 +138,7 @@ export function renderLocked(root, onAllowed) {
   switchBtn.addEventListener('click', () => { clearToken(); renderLogin(root, onAllowed); });
 
   root.appendChild(gateCard('🔒', 'Access paused', [
-    el('p', { class: 'install-lead', text: 'Your access to Refunds isn't active right now. Please contact Chase to restore it.' }),
+    el('p', { class: 'install-lead', text: 'Your access to Refunds isn\'t active right now. Please contact Chase to restore it.' }),
     el('p', { class: 'install-why', text: 'You can still back up your data below — nothing on this device has been deleted.' }),
     el('div', { class: 'gate-actions' }, [backupBtn, retryBtn, switchBtn])
   ]));

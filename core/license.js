@@ -45,6 +45,7 @@ async function post(path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
+  if (!res.ok) throw new Error(`license-server ${res.status}`);
   return res.json();
 }
 export function requestCode(email) { return post('/request-code', { email, product_id: PRODUCT_ID }); }

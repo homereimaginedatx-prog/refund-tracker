@@ -34,6 +34,7 @@
     } from './features/items/model.js';
     import { buildEnvelope, validateEnvelope, blobToDataURL, dataURLToBlob } from './core/backup.js';
     import { buildICS, icsEscape } from './features/items/calendar.js';
+    import { decideVerdict } from './core/license.js';
 
     const results = document.getElementById('results');
     let pass = 0, fail = 0;
@@ -188,6 +189,14 @@
     const round = JSON.parse(JSON.stringify(env));
     check('JSON round-trip preserves items', round.items.length === items.length);
     check('JSON round-trip preserves amounts', round.items[1].amount === 2500);
+
+    // ---- license gate decision ----
+    eq('no token → login', decideVerdict({ hasToken:false, networkOk:true, serverStatus:'active', cachedStatus:'active' }), 'login');
+    eq('online active → allow', decideVerdict({ hasToken:true, networkOk:true, serverStatus:'active', cachedStatus:null }), 'allow');
+    eq('online inactive → lock', decideVerdict({ hasToken:true, networkOk:true, serverStatus:'inactive', cachedStatus:'active' }), 'lock');
+    eq('online unknown → lock', decideVerdict({ hasToken:true, networkOk:true, serverStatus:'unknown', cachedStatus:'active' }), 'lock');
+    eq('offline + cached active → allow', decideVerdict({ hasToken:true, networkOk:false, serverStatus:null, cachedStatus:'active' }), 'allow');
+    eq('offline + no cache → login', decideVerdict({ hasToken:true, networkOk:false, serverStatus:null, cachedStatus:null }), 'login');
 
     // ---- blob (receipt) round-trip ----
     (async () => {

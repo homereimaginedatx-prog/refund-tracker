@@ -78,6 +78,7 @@ h1, h2, h3 { margin: 0; }
   background: var(--surface); color: var(--text); font-size: 18px; line-height: 1;
 }
 .icon-btn:active { transform: scale(.94); }
+.header-actions { display: flex; align-items: center; gap: 10px; }
 
 /* ---- Dashboard tiles ---- */
 .dashboard { padding: 18px 20px 6px; display: flex; flex-direction: column; gap: 12px; }
@@ -342,3 +343,13 @@ h1, h2, h3 { margin: 0; }
 
 /* License gate: stack the inputs/buttons inside the shared install card. */
 .gate-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+
+/* ---- Share sheet ---- */
+.share-qr { display: flex; justify-content: center; margin: 16px 0 6px; }
+.share-qr svg { width: 200px; height: 200px; border-radius: 12px; border: 1px solid var(--line); background: #fff; padding: 8px; }
+.share-caption { text-align: center; font-size: 13px; color: var(--text-dim); margin: 0 0 4px; }
+.share-preview {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px; font-size: 14px; color: var(--text-dim); line-height: 1.45; margin-top: 6px;
+  word-break: break-word;
+}

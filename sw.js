@@ -20,6 +20,10 @@ const PRECACHE = [
   './core/app.js',
   './core/license.js',
   './core/license-views.js',
+  './core/share.js',
+  './assets/qrcode.js',
+  './request/',
+  './request/index.html',
   './manifest.webmanifest'
 ];
 

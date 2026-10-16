@@ -35,6 +35,8 @@
     import { buildEnvelope, validateEnvelope, blobToDataURL, dataURLToBlob } from './core/backup.js';
     import { buildICS, icsEscape } from './features/items/calendar.js';
     import { decideVerdict } from './core/license.js';
+    import { buildRequestUrl, shareMessage, smsHref } from './core/share.js';
+    import { encodeText } from './assets/qrcode.js';
 
     const results = document.getElementById('results');
     let pass = 0, fail = 0;
@@ -197,6 +199,17 @@
     eq('online unknown → lock', decideVerdict({ hasToken:true, networkOk:true, serverStatus:'unknown', cachedStatus:'active' }), 'lock');
     eq('offline + cached active → allow', decideVerdict({ hasToken:true, networkOk:false, serverStatus:null, cachedStatus:'active' }), 'allow');
     eq('offline + no cache → login', decideVerdict({ hasToken:true, networkOk:false, serverStatus:null, cachedStatus:null }), 'login');
+
+    // ---- share helpers ----
+    eq('buildRequestUrl resolves request/ under app base',
+      buildRequestUrl('https://ex.com/refund-tracker/', null), 'https://ex.com/refund-tracker/request/');
+    eq('buildRequestUrl adds opaque ref (never an email)',
+      buildRequestUrl('https://ex.com/refund-tracker/', 'k7Qz9'), 'https://ex.com/refund-tracker/request/?ref=k7Qz9');
+    check('shareMessage includes the link', shareMessage('https://ex.com/r/').includes('https://ex.com/r/'));
+    check('smsHref opens Messages with a body', smsHref('hi there').startsWith('sms:?&body=') && smsHref('a b').includes('a%20b'));
+    // QR: byte-mode encode produces a valid module grid (size = 4*version+17, so size%4===1).
+    const qrSize = encodeText('https://ex.com/refund-tracker/request/', 'M').size;
+    check('QR size is a valid module count', qrSize % 4 === 1 && qrSize >= 21);
 
     // ---- blob (receipt) round-trip ----
     (async () => {

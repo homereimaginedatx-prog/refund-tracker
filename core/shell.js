@@ -5,6 +5,7 @@
 import { el, clear, daysSince, toast } from './ui.js';
 import { getFeatures } from './registry.js';
 import { openSettings } from './settings.js';
+import { openShareSheet } from './share.js';
 import { getAllItems, getMeta } from './db.js';
 import { exportBackup } from './backup.js';
 
@@ -17,8 +18,9 @@ export async function mountShell(root) {
   const title = el('div', { class: 'app-title' }, [
     el('span', { class: 'app-title-main', text: 'Refunds' })
   ]);
+  const shareIcon = el('button', { class: 'icon-btn', 'aria-label': 'Share Refunds', text: '➦', onClick: () => openShareSheet() });
   const gear = el('button', { class: 'icon-btn', 'aria-label': 'Settings', text: '⚙︎', onClick: openSettings });
-  const header = el('header', { class: 'app-header' }, [title, gear]);
+  const header = el('header', { class: 'app-header' }, [title, el('div', { class: 'header-actions' }, [shareIcon, gear])]);
 
   const banner = el('div', { class: 'banner-host' });
   const content = el('main', { class: 'app-content' });

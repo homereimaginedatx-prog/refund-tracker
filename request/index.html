@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#4f46e5" />
+  <title>Request access · Refunds</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+  <style>
+    /* The request page is a single centered card — reuses the app's install-card look. */
+    .req-wrap { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px; }
+    .req-card { background:var(--surface); border:1px solid var(--line); border-radius:22px;
+      box-shadow:var(--shadow); padding:30px 26px; max-width:440px; width:100%; }
+    .req-card h1 { font-size:24px; margin:6px 0 2px; }
+    .req-emoji { font-size:46px; text-align:center; }
+    .req-lead { color:var(--text-dim); margin:6px 0 18px; }
+    .req-field { display:block; margin-bottom:14px; }
+    .req-field label { display:block; font-size:13px; font-weight:600; color:var(--text-dim); margin-bottom:6px; }
+    .req-note { font-size:12px; color:var(--text-dim); margin-top:14px; line-height:1.5; }
+    .req-ok { text-align:center; }
+    .req-ok .req-emoji { margin-bottom:6px; }
+    .preview-tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em;
+      text-transform:uppercase; color:var(--warn); background:var(--warn-bg);
+      padding:3px 9px; border-radius:999px; margin-bottom:10px; }
+    .hidden { display:none !important; }
+  </style>
+</head>
+<body>
+  <div class="req-wrap">
+    <div class="req-card">
+      <!-- Form -->
+      <div id="form-view">
+        <span class="preview-tag">Preview</span>
+        <div class="req-emoji">🧾</div>
+        <h1>Request access to Refunds</h1>
+        <p class="req-lead" id="lead">A friend thought you’d like Refunds — a tiny app for keeping
+          track of returns and money you’re owed back. Ask for access below.</p>
+
+        <form id="req-form" novalidate>
+          <div class="req-field">
+            <label for="name">Your name</label>
+            <input class="input" id="name" type="text" autocomplete="name" placeholder="Jane Smith" />
+          </div>
+          <div class="req-field">
+            <label for="email">Your email</label>
+            <input class="input" id="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" />
+          </div>
+          <div class="field-err" id="err"></div>
+          <button class="btn btn-primary" id="submit" type="submit" style="width:100%;padding:14px;">Request access</button>
+        </form>
+
+        <p class="req-note">We’ll only use this to set up your access — nothing else. You’ll hear back
+          once it’s approved.</p>
+      </div>
+
+      <!-- Confirmation -->
+      <div id="done-view" class="req-ok hidden">
+        <div class="req-emoji">✅</div>
+        <h1>Request sent</h1>
+        <p class="req-lead">Thanks! Your request is in. You’ll hear back once it’s approved, with a link
+          to open the app.</p>
+        <p class="req-note" id="preview-disclaimer">This is a preview — the request wasn’t actually
+          submitted yet (the access service isn’t live). When it’s enabled, this page will record your
+          request for review.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Plain, dependency-free. When the server endpoint is live, set ENDPOINT and the
+    // submit handler will POST { name, email, product_id, ref } and drop the preview note.
+    var ENDPOINT = null; // e.g. 'https://license-server.homereimaginedatx.workers.dev/request-access'
+    var PRODUCT_ID = 'refund-tracker';
+    var ref = new URLSearchParams(location.search).get('ref') || null;
+
+    var form = document.getElementById('req-form');
+    var err = document.getElementById('err');
+    var submit = document.getElementById('submit');
+
+    function validEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+
+    form.addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      err.textContent = '';
+      var name = document.getElementById('name').value.trim();
+      var email = document.getElementById('email').value.trim();
+      if (!name) { err.textContent = 'Please enter your name.'; return; }
+      if (!validEmail(email)) { err.textContent = 'Please enter a valid email address.'; return; }
+
+      submit.disabled = true; submit.textContent = 'Sending…';
+      try {
+        if (ENDPOINT) {
+          await fetch(ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, email: email, product_id: PRODUCT_ID, ref: ref })
+          });
+          document.getElementById('preview-disclaimer').classList.add('hidden');
+          document.querySelector('.preview-tag') && document.querySelector('.preview-tag').remove();
+        }
+        document.getElementById('form-view').classList.add('hidden');
+        document.getElementById('done-view').classList.remove('hidden');
+      } catch (e) {
+        submit.disabled = false; submit.textContent = 'Request access';
+        err.textContent = 'Could not send your request — please check your connection and try again.';
+      }
+    });
+  </script>
+</body>
+</html>

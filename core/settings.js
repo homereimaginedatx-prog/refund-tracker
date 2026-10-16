@@ -8,6 +8,7 @@ import { getMeta, clearData } from './db.js';
 import { ENFORCE, getEmail, clearToken } from './license.js';
 import { getCategories, addCategory, removeCategory, renameCategory } from '../features/items/categories.js';
 import { getCards, addCard, removeCard, renameCard } from '../features/items/cards.js';
+import { openShareSheet } from './share.js';
 
 export async function openSettings() {
   const body = el('div', { class: 'form settings' });
@@ -81,6 +82,20 @@ export async function openSettings() {
     class: 'settings-note',
     text: 'Your data is stored only on this iPad. Back up to iCloud Drive regularly — the backup file is your safety copy if anything ever happens to the device.'
   }));
+
+  // --- Invite a friend ---
+  const shareSection = el('div', { class: 'settings-section' });
+  shareSection.appendChild(el('h3', { class: 'settings-h3', text: 'Invite a friend' }));
+  const shareBtn = el('button', {
+    class: 'btn btn-primary', text: '➦  Share Refunds',
+    onClick: () => openShareSheet()
+  });
+  shareSection.appendChild(el('div', { class: 'settings-actions' }, [shareBtn]));
+  shareSection.appendChild(el('p', {
+    class: 'settings-note',
+    text: 'Send a friend or family member an invite. They request access and you approve it — so only people you allow can use the app.'
+  }));
+  body.appendChild(shareSection);
 
   // --- Categories manager ---
   const catSection = el('div', { class: 'settings-section' });
